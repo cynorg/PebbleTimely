@@ -26,7 +26,7 @@ const char daysOfWeek[7][3] = {"S","M","T","W","Th","F","S"};
 const char months[12][12] = {"January","Feburary","March","April","May","June","July","August","September","October", "November", "December"};
 
 
-//TODO  This function is really emparissing - there as got to be a better way
+//TODO  This function is really embarrassing - there has got to be a better way
 char* intToStr(int i){
     if(i==0) return "0";
     if(i==1) return "1";
@@ -163,8 +163,12 @@ int wdayOfFirstOffset(int wday,int mday,int ofs){
 }
 int daysInMonth(int mon, int year){
     mon = mon+1;
+    
+    // April, June, September and November have 30 Days
     if(mon == 4 || mon == 6 || mon == 9 || mon == 11)
         return 30;
+        
+    // Deal with Feburary & Leap years
     else if( mon == 2 ){
         if(year%400==0)
             return 29;
@@ -175,6 +179,7 @@ int daysInMonth(int mon, int year){
         else 
             return 28;
     }
+    // Most months have 31 days
     else
         return 31;
 }
@@ -203,18 +208,19 @@ void setInvColors(GContext* ctx){
         graphics_context_set_text_color(ctx, GColorBlack);
     }
 }
+
+
 void days_layer_update_callback(Layer *me, GContext* ctx) {
     (void)me;
     
-    
-    setColors(ctx);
-    
     PblTm currentTime;
     get_time(&currentTime);
-    
     int mon = currentTime.tm_mon;
     int year = currentTime.tm_year+1900;
     
+    
+    // Figure out which month & year we are going to be looking at based on the selected offset
+    // Calculate how many days are between the first of this month and the first of the month we are interested in
     int j = 0;
     int od = 0;
     while(j < abs(offset)){
@@ -236,58 +242,65 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
         }
     }
     
+    // Days in the target month
     int dom = daysInMonth(mon,year);
+    
+    // Day of the week for the first day in the target month 
     int dow = wdayOfFirstOffset(currentTime.tm_wday,currentTime.tm_mday,od);
     
+    
+    // Cell geometry
     
     int l = 2;      // position of left side of left column
     int b = 167;    // position of bottom of bottom row
     int d = 7;      // number of columns (days of the week)
-    int lw = 20;    // width of cells 
-    int w = ceil(((float) dow + (float) dom)/7);
-    int bh;
+    int lw = 20;    // width of columns 
+    int w = ceil(((float) dow + (float) dom)/7); // number of weeks this month
     
-    if(w == 4)
-        bh = 30;
-    else if(w == 5)
-        bh = 24;
-    else
-        bh = 20;
-    
-    int r = l+d*lw; // position of right side of right column (calculated)
-    int t = b-w*bh; // position of top of top row (calculated)
+    int bh;    // How tall rows should be depends on how many weeks there are
+    if(w == 4)      bh = 30;
+    else if(w == 5) bh = 24;
+    else            bh = 20;
+        
+    int r = l+d*lw; // position of right side of right column
+    int t = b-w*bh; // position of top of top row
     int i;
     
+        
     setColors(ctx);
+    
+    // Draw the Gridlines
     if(grid){
-        // draw horizontal lines
+        // horizontal lines
         for(i=1;i<=w;i++){
             graphics_draw_line(ctx, GPoint(l, b-i*bh), GPoint(r, b-i*bh));
         }
-        // draw vertical lines
+        // vertical lines
         for(i=1;i<d;i++){
             graphics_draw_line(ctx, GPoint(l+i*lw, t), GPoint(l+i*lw, b));
         }
     }
-    // draw days of week
+    // Draw days of week
     for(i=0;i<7;i++){
         graphics_text_draw(ctx, daysOfWeek[i],  fonts_get_system_font(FONT_KEY_GOTHIC_14), GRect(l+i*lw+1, 30, lw-1, 20), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL); 
     }
     
     
-    int wknum = 0;
-    dow = dow - 1;
+    
+    // Fill in the cells with the month days
     int fh;
     GFont font;
+    int wknum = 0;
     
     for(i=1;i<=dom;i++){
-        dow++;
+    
+        // New Weeks begin on Sunday
         if(dow > 6){
             dow = 0;
             wknum ++;
         }
 
-        
+        // Is this today?  If so prep special today style
         if(i==currentTime.tm_mday && offset == 0){
             if(invert){
                 setInvColors(ctx);
@@ -296,14 +309,21 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
             font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
             fh = 20;
 
+        // Normal (non-today) style
         }else{
             font = fonts_get_system_font(FONT_KEY_GOTHIC_14);
             fh = 16;
         }
+        
+        // Draw the day
         graphics_text_draw(ctx, intToStr(i),  font, GRect(l+dow*lw+1, b-(-0.5+w-wknum)*bh-fh/2-1, lw-1, fh), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL); 
         
-        if(invert)
-            setColors(ctx);       
+        // Fix colors if inverted
+        // TODO could be smarter about how often to do this
+        if(invert) setColors(ctx);
+        
+        // and on to the next day
+        dow++;   
     }
 }
 
@@ -314,9 +334,11 @@ void month_layer_update_callback(Layer *me, GContext* ctx) {
     
     setColors(ctx);
     
+    // Add month offset to current month/year
     int mon = currentTime.tm_mon+offset;
     int year = currentTime.tm_year+1900;
     
+    // Fix the momtn and year to be sane values
     while(mon > 11 || mon < 0){
         if(mon>11){
             mon = mon - 12;
@@ -327,26 +349,26 @@ void month_layer_update_callback(Layer *me, GContext* ctx) {
         }
     }
     
+    // Build the MONTH YEAR string
+    // TODO there should be a much bettery way
     char str[80];
     strcpy (str,months[mon]);
     strcat (str," ");
     strcat (str,intToStr((year/100)));
     if((year%100)<10)
         strcat (str,intToStr(0));
-        
     strcat (str,intToStr((year%100)));
     
+    // Draw the MONTH/YEAR String
     graphics_text_draw(ctx, str,  fonts_get_system_font(FONT_KEY_GOTHIC_24), GRect(0, 0, 144, 30), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
 }
 
 
 
 void up_single_click_handler(ClickRecognizerRef recognizer, Window *window) {
-  (void)recognizer;
-  (void)window;
-
+    (void)recognizer;
+    (void)window;
     offset = offset - 1;
-    
     layer_mark_dirty(&month_layer);
     layer_mark_dirty(&days_layer);
 }
@@ -356,7 +378,6 @@ void down_single_click_handler(ClickRecognizerRef recognizer, Window *window) {
     (void)recognizer;
     (void)window;
     offset = offset + 1;
-    
     layer_mark_dirty(&month_layer);
     layer_mark_dirty(&days_layer);
 }
@@ -365,22 +386,17 @@ void select_single_click_handler(ClickRecognizerRef recognizer, Window *window) 
     (void)recognizer;
     (void)window;
     offset = 0;
-    
     layer_mark_dirty(&month_layer);
     layer_mark_dirty(&days_layer);
 }
 
 void config_provider(ClickConfig **config, Window *window) {
-  (void)window;
-
-
-  config[BUTTON_ID_SELECT]->click.handler = (ClickHandler) select_single_click_handler;
-  
-  config[BUTTON_ID_UP]->click.handler = (ClickHandler) up_single_click_handler;
-  config[BUTTON_ID_UP]->click.repeat_interval_ms = 100;
-
-  config[BUTTON_ID_DOWN]->click.handler = (ClickHandler) down_single_click_handler;
-  config[BUTTON_ID_DOWN]->click.repeat_interval_ms = 100;
+    (void)window;
+    config[BUTTON_ID_SELECT]->click.handler = (ClickHandler) select_single_click_handler;
+    config[BUTTON_ID_UP]->click.handler = (ClickHandler) up_single_click_handler;
+    config[BUTTON_ID_UP]->click.repeat_interval_ms = 100;
+    config[BUTTON_ID_DOWN]->click.handler = (ClickHandler) down_single_click_handler;
+    config[BUTTON_ID_DOWN]->click.repeat_interval_ms = 100;
 }
 
 void handle_init(AppContextRef ctx) {
