@@ -1,0 +1,28 @@
+Calendar App
+
+This is an app for the Pebble Watch.  It shows a month view calendar.
+
+Up Button moves to previous month.
+Down Button moves to next month.
+Center Button returns to current month.
+
+Near the top of calendarApp.c you will find the following flags for configuring the appearance of the calendar.
+
+black:
+        true  = White text on Black Background
+        false = Black text on White Background
+
+grid:
+        true  = Draws horizontal and vertical lines between the days of the week
+        false = Does not draw said lines
+
+invert
+        true  = Todays date will be larger & bold and the Text & Background colors will be inverted
+        false = Todays date will be larger & bold
+
+
+daysOfWeek
+        array that holds the text used for the column headings
+
+months
+        array that holds the text used for the month text displayed at the top of the app.
