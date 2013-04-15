@@ -13,7 +13,7 @@ black:
         false = Black text on White Background
 
 grid:
-        true  = Draws horizontal and vertical lines between the days of the week
+        true  = Draws horizontal and vertical lines between the rows and columns
         false = Does not draw said lines
 
 invert
