@@ -141,11 +141,13 @@ char* intToStr(int i){
     
     return "error";
 }
+// Calculate what day of the week it was on the first day of the month, if mday was a wday
 int wdayOfFirst(int wday,int mday){
     int a = wday - ((mday-1)%7);
     if(a<0) a = a+7;
     return a;
 }
+// Calculate what day of the week it was/will be X days from the first day of the month, if mday was a wday
 int wdayOfFirstOffset(int wday,int mday,int ofs){
     int a = wday - ((mday-1)%7);
     if(a<0) a = a+7;
@@ -161,6 +163,8 @@ int wdayOfFirstOffset(int wday,int mday,int ofs){
     
     return b;
 }
+
+// How many days are/were in the month
 int daysInMonth(int mon, int year){
     mon = mon+1;
     
