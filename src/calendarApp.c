@@ -338,33 +338,11 @@ void month_layer_update_callback(Layer *me, GContext* ctx) {
     
     setColors(ctx);
     
-    // Add month offset to current month/year
-    int mon = currentTime.tm_mon+offset;
-    int year = currentTime.tm_year+1900;
-    
-    // Fix the momtn and year to be sane values
-    while(mon > 11 || mon < 0){
-        if(mon>11){
-            mon = mon - 12;
-            year = year+1;
-        }else if(mon < 0){
-            mon = mon + 12;
-            year = year - 1;
-        }
-    }
-    
-    // Build the MONTH YEAR string
-    // TODO there should be a much bettery way
-    char str[80];
-    strcpy (str,months[mon]);
-    strcat (str," ");
-    strcat (str,intToStr((year/100)));
-    if((year%100)<10)
-        strcat (str,intToStr(0));
-    strcat (str,intToStr((year%100)));
+    char timeText[20] = ""; 
+    string_format_time(timeText, sizeof(timeText), "%B %d, %Y", &currentTime);
     
     // Draw the MONTH/YEAR String
-    graphics_text_draw(ctx, str,  fonts_get_system_font(FONT_KEY_GOTHIC_24), GRect(0, 0, 144, 30), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
+    graphics_text_draw(ctx, timeText,  fonts_get_system_font(FONT_KEY_GOTHIC_24), GRect(0, 0, 144, 30), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
 }
 
 
