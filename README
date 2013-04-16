@@ -20,3 +20,10 @@ invert
 daysOfWeek
         array that holds the text used for the column headings
 
+
+dayOfWeekOffset
+        Offset days of week. Values can be between -6 and 6 
+        0 = weeks start on Sunday
+        1 = weeks start on Monday
+        2 = weeks start on Tuesday 
+
