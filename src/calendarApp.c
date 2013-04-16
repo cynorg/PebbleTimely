@@ -4,12 +4,12 @@
 #include <math.h>
 #include "resource_ids.auto.h"
 
-#define MY_UUID { 0xB4, 0x1E, 0x3D, 0xCF, 0x61, 0x62, 0x41, 0x47, 0x9C, 0x58, 0x64, 0x3E, 0x10, 0x91, 0xFB, 0x93 }
+#define MY_UUID { 0x8C, 0x77, 0x18, 0xB5, 0x81, 0x58, 0x48, 0xD9, 0x9D, 0x81, 0x1E, 0x3A, 0xB2, 0x32, 0xC9, 0x5C }
 PBL_APP_INFO(MY_UUID,
              "Calendar", "William Heaton",
              1, 0, /* App version */
              RESOURCE_ID_IMAGE_MENU_ICON,
-             APP_INFO_STANDARD_APP);
+             APP_INFO_WATCH_FACE);
 
 static int offset = 0;
 
@@ -368,41 +368,6 @@ void month_layer_update_callback(Layer *me, GContext* ctx) {
 }
 
 
-
-void up_single_click_handler(ClickRecognizerRef recognizer, Window *window) {
-    (void)recognizer;
-    (void)window;
-    offset = offset - 1;
-    layer_mark_dirty(&month_layer);
-    layer_mark_dirty(&days_layer);
-}
-
-
-void down_single_click_handler(ClickRecognizerRef recognizer, Window *window) {
-    (void)recognizer;
-    (void)window;
-    offset = offset + 1;
-    layer_mark_dirty(&month_layer);
-    layer_mark_dirty(&days_layer);
-}
-
-void select_single_click_handler(ClickRecognizerRef recognizer, Window *window) {
-    (void)recognizer;
-    (void)window;
-    offset = 0;
-    layer_mark_dirty(&month_layer);
-    layer_mark_dirty(&days_layer);
-}
-
-void config_provider(ClickConfig **config, Window *window) {
-    (void)window;
-    config[BUTTON_ID_SELECT]->click.handler = (ClickHandler) select_single_click_handler;
-    config[BUTTON_ID_UP]->click.handler = (ClickHandler) up_single_click_handler;
-    config[BUTTON_ID_UP]->click.repeat_interval_ms = 100;
-    config[BUTTON_ID_DOWN]->click.handler = (ClickHandler) down_single_click_handler;
-    config[BUTTON_ID_DOWN]->click.repeat_interval_ms = 100;
-}
-
 void handle_init(AppContextRef ctx) {
   (void)ctx;
 
@@ -420,7 +385,6 @@ void handle_init(AppContextRef ctx) {
     days_layer.update_proc = &days_layer_update_callback;
     layer_add_child(&window.layer, &days_layer);
     
-    window_set_click_config_provider(&window, (ClickConfigProvider) config_provider);
 }
 
 void handle_tick(AppContextRef ctx, PebbleTickEvent *t) {
