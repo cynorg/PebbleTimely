@@ -26,3 +26,9 @@ daysOfWeek
 
 months
         array that holds the text used for the month text displayed at the top of the app.
+
+dayOfWeekOffset
+        Offset days of week. Values can be between -6 and 6 
+        0 = weeks start on Sunday
+        1 = weeks start on Monday
+        2 = weeks start on Tuesday 
