@@ -22,7 +22,6 @@ const bool grid = true; // show the grid
 const bool invert = true; // Invert colors on today's date
 
 const char daysOfWeek[7][3] = {"S","M","T","W","Th","F","S"};
-const char months[12][12] = {"January","Feburary","March","April","May","June","July","August","September","October", "November", "December"};
 
 
 //TODO  This function is really embarrassing - there has got to be a better way

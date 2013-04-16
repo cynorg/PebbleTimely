@@ -20,5 +20,3 @@ invert
 daysOfWeek
         array that holds the text used for the column headings
 
-months
-        array that holds the text used for the month text displayed at the top of the app.
