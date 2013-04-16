@@ -11,7 +11,6 @@ PBL_APP_INFO(MY_UUID,
              RESOURCE_ID_IMAGE_MENU_ICON,
              APP_INFO_WATCH_FACE);
 
-static int offset = 0;
 
 Window window;
 
@@ -147,22 +146,6 @@ int wdayOfFirst(int wday,int mday){
     if(a<0) a = a+7;
     return a;
 }
-// Calculate what day of the week it was/will be X days from the first day of the month, if mday was a wday
-int wdayOfFirstOffset(int wday,int mday,int ofs){
-    int a = wday - ((mday-1)%7);
-    if(a<0) a = a+7;
-
-    int b;
-    if(ofs>0)
-        b = a + (abs(ofs)%7); 
-    else
-        b = a - (abs(ofs)%7); 
-    
-    if(b<0) b = b+7;
-    if(b>6) b = b-7;
-    
-    return b;
-}
 
 // How many days are/were in the month
 int daysInMonth(int mon, int year){
@@ -223,34 +206,11 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
     int year = currentTime.tm_year+1900;
     
     
-    // Figure out which month & year we are going to be looking at based on the selected offset
-    // Calculate how many days are between the first of this month and the first of the month we are interested in
-    int j = 0;
-    int od = 0;
-    while(j < abs(offset)){
-        j++;
-        if(offset > 0){
-            od = od + daysInMonth(mon,year);
-            mon++;
-            if(mon>11){
-                mon = mon - 12;
-                year = year+1;
-            }
-        }else{
-            mon--;
-            if(mon < 0){
-                mon = mon + 12;
-                year = year - 1;
-            }
-            od = od - daysInMonth(mon,year);
-        }
-    }
-    
     // Days in the target month
     int dom = daysInMonth(mon,year);
     
     // Day of the week for the first day in the target month 
-    int dow = wdayOfFirstOffset(currentTime.tm_wday,currentTime.tm_mday,od);
+    int dow = wdayOfFirst(currentTime.tm_wday,currentTime.tm_mday);
     
     
     // Cell geometry
@@ -305,7 +265,7 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
         }
 
         // Is this today?  If so prep special today style
-        if(i==currentTime.tm_mday && offset == 0){
+        if(i==currentTime.tm_mday){
             if(invert){
                 setInvColors(ctx);
                 graphics_fill_rect(ctx,GRect(l+dow*lw+1, b-(w-wknum)*bh+1, lw-1, bh-1),0,GCornerNone);
