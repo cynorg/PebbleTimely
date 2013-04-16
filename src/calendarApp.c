@@ -184,12 +184,16 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
     }
 }
 
+
 void month_layer_update_callback(Layer *me, GContext* ctx) {
     (void)me;
     PblTm currentTime;
     get_time(&currentTime);
     
     setColors(ctx);
+    
+    char timeText[20] = ""; 
+    string_format_time(timeText, sizeof(timeText), "%B %d, %Y", &currentTime);
     
     // Draw the MONTH/YEAR String
     graphics_text_draw(ctx, timeText,  fonts_get_system_font(FONT_KEY_GOTHIC_24), GRect(0, 0, 144, 30), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
