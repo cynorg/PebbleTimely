@@ -1,4 +1,4 @@
-Calendar Watchface
+Calendar Watchface for Pebble
 
 This is a Watchface for the Pebble Watch.  It shows a month view calendar of the current month.  See master branch for app version that uses up/down buttons to navigate to next/previous months.
 
@@ -26,4 +26,15 @@ dayOfWeekOffset
         0 = weeks start on Sunday
         1 = weeks start on Monday
         2 = weeks start on Tuesday 
+        
+        
+        
+Licence
 
+Copyright (C) 2013 William Heaton <William.G.Heaton@gmail.com>
+
+Calendar Watchface for Pebble is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+
+Calendar Watchface for Pebble is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with Calendar Watchface for Pebble. If not, see http://www.gnu.org/licenses/.
