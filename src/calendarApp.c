@@ -23,43 +23,15 @@ const bool invert = true; // Invert colors on today's date
 
 const char daysOfWeek[7][3] = {"S","M","T","W","Th","F","S"};
 
+char* intToStr(int val){
 
-//TODO  This function is really embarrassing - there has got to be a better way
-char* intToStr(int i){
-    if(i==0) return "0";
-    if(i==1) return "1";
-    if(i==2) return "2";
-    if(i==3) return "3";
-    if(i==4) return "4";
-    if(i==5) return "5";
-    if(i==6) return "6";
-    if(i==7) return "7";
-    if(i==8) return "8";
-    if(i==9) return "9";
-    if(i==10) return "10";
-    if(i==11) return "11";
-    if(i==12) return "12";
-    if(i==13) return "13";
-    if(i==14) return "14";
-    if(i==15) return "15";
-    if(i==16) return "16";
-    if(i==17) return "17";
-    if(i==18) return "18";
-    if(i==19) return "19";
-    if(i==20) return "20";
-    if(i==21) return "21";
-    if(i==22) return "22";
-    if(i==23) return "23";
-    if(i==24) return "24";
-    if(i==25) return "25";
-    if(i==26) return "26";
-    if(i==27) return "27";
-    if(i==28) return "28";
-    if(i==29) return "29";
-    if(i==30) return "30";
-    if(i==31) return "31";
-    
-    return "error";
+ 	static char buf[32] = {0};
+	
+	int i = 30;	
+	for(; val && i ; --i, val /= 10)
+		buf[i] = "0123456789"[val % 10];
+	
+	return &buf[i+1];
 }
 // Calculate what day of the week it was on the first day of the month, if mday was a wday
 int wdayOfFirst(int wday,int mday){
@@ -218,9 +190,6 @@ void month_layer_update_callback(Layer *me, GContext* ctx) {
     get_time(&currentTime);
     
     setColors(ctx);
-    
-    char timeText[20] = ""; 
-    string_format_time(timeText, sizeof(timeText), "%B %d, %Y", &currentTime);
     
     // Draw the MONTH/YEAR String
     graphics_text_draw(ctx, timeText,  fonts_get_system_font(FONT_KEY_GOTHIC_24), GRect(0, 0, 144, 30), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
