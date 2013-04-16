@@ -17,8 +17,8 @@ Window window;
 Layer month_layer;
 Layer days_layer;
 
-const bool black = false;  // Is the background black
-const bool grid = false; // show the grid
+const bool black = true;  // Is the background black
+const bool grid = true; // show the grid
 const bool invert = true; // Invert colors on today's date
 
 
@@ -222,7 +222,7 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
             NULL); 
         
         // Fix colors if inverted
-        if(invert && offset == 0 && i==currentTime.tm_mday ) setColors(ctx);
+        if(invert && i==currentTime.tm_mday ) setColors(ctx);
         
         // and on to the next day
         dow++;   
