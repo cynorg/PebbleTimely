@@ -1,6 +1,6 @@
 Calendar Watchface
 
-This is an Watchface for the Pebble Watch.  It shows a month view calendar of the current month.  See master branch for app version that uses up/down buttons to navigate to next/previous months.
+This is a Watchface for the Pebble Watch.  It shows a month view calendar of the current month.  See master branch for app version that uses up/down buttons to navigate to next/previous months.
 
 Near the top of calendarApp.c you will find the following flags for configuring the appearance of the calendar. 
 
