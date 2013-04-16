@@ -1,12 +1,8 @@
-Calendar App
+Calendar Watchface
 
-This is an app for the Pebble Watch.  It shows a month view calendar.
+This is an Watchface for the Pebble Watch.  It shows a month view calendar of the current month.  See master branch for app version that uses up/down buttons to navigate to next/previous months.
 
-Up Button moves to previous month.
-Down Button moves to next month.
-Center Button returns to current month.
-
-Near the top of calendarApp.c you will find the following flags for configuring the appearance of the calendar.
+Near the top of calendarApp.c you will find the following flags for configuring the appearance of the calendar. 
 
 black:
         true  = White text on Black Background
