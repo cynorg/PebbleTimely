@@ -36,13 +36,14 @@ char* intToStr(int val){
 // Calculate what day of the week it was on the first day of the month, if mday was a wday
 int wdayOfFirst(int wday,int mday){
     int a = wday - ((mday-1)%7);
-    if(a<0) a = a+7;
+    if(a<0) a += 7;
     return a;
 }
 
+
 // How many days are/were in the month
 int daysInMonth(int mon, int year){
-    mon = mon+1;
+    mon++;
     
     // April, June, September and November have 30 Days
     if(mon == 4 || mon == 6 || mon == 9 || mon == 11)
@@ -98,7 +99,7 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
     int mon = currentTime.tm_mon;
     int year = currentTime.tm_year+1900;
     
-    
+
     // Days in the target month
     int dom = daysInMonth(mon,year);
     
@@ -121,6 +122,9 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
         
     int r = l+d*lw; // position of right side of right column
     int t = b-w*bh; // position of top of top row
+    int cw = lw-1;  // width of textarea
+    int cl = l+1;
+    int ch = bh-1;
     int i;
     
         
@@ -139,7 +143,7 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
     }
     // Draw days of week
     for(i=0;i<7;i++){
-        graphics_text_draw(ctx, daysOfWeek[i],  fonts_get_system_font(FONT_KEY_GOTHIC_14), GRect(l+i*lw+1, 30, lw-1, 20), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL); 
+        graphics_text_draw(ctx, daysOfWeek[i],  fonts_get_system_font(FONT_KEY_GOTHIC_14), GRect(cl+i*lw, 30, cw, 20), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL); 
     }
     
     
@@ -161,7 +165,7 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
         if(i==currentTime.tm_mday){
             if(invert){
                 setInvColors(ctx);
-                graphics_fill_rect(ctx,GRect(l+dow*lw+1, b-(w-wknum)*bh+1, lw-1, bh-1),0,GCornerNone);
+                graphics_fill_rect(ctx,GRect(l+dow*lw+1, b-(w-wknum)*bh+1, cw, ch),0,GCornerNone);
             }
             font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
             fh = 20;
@@ -173,11 +177,10 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
         }
         
         // Draw the day
-        graphics_text_draw(ctx, intToStr(i),  font, GRect(l+dow*lw+1, b-(-0.5+w-wknum)*bh-fh/2-1, lw-1, fh), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL); 
+        graphics_text_draw(ctx, intToStr(i),  font, GRect(cl+dow*lw, b-(-0.5+w-wknum)*bh-fh/2-1, cw, fh), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL); 
         
         // Fix colors if inverted
-        // TODO could be smarter about how often to do this
-        if(invert) setColors(ctx);
+        if(invert && offset == 0 && i==currentTime.tm_mday ) setColors(ctx);
         
         // and on to the next day
         dow++;   
@@ -192,8 +195,10 @@ void month_layer_update_callback(Layer *me, GContext* ctx) {
     
     setColors(ctx);
     
+
     char timeText[20] = ""; 
     string_format_time(timeText, sizeof(timeText), "%B %d, %Y", &currentTime);
+
     
     // Draw the MONTH/YEAR String
     graphics_text_draw(ctx, timeText,  fonts_get_system_font(FONT_KEY_GOTHIC_24), GRect(0, 0, 144, 30), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
