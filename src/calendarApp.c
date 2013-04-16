@@ -25,7 +25,7 @@ const bool invert = true; // Invert colors on today's date
 // Offset days of week. Values can be between -6 and 6 
 // 0 = weeks start on Sunday
 // 1 =  weeks start on Monday
-const int  dayOfWeekOffset = 1; 
+const int  dayOfWeekOffset = 0; 
 
 const char daysOfWeek[7][3] = {"S","M","T","W","Th","F","S"};
 
