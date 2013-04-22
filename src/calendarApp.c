@@ -19,7 +19,7 @@ Layer month_layer;
 Layer days_layer;
 
 const bool black = false;  // Is the background black
-const bool grid = false; // show the grid
+const bool grid = true; // show the grid
 const bool invert = true; // Invert colors on today's date
 
 
