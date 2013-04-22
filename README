@@ -1,4 +1,4 @@
-Calendar App
+Calendar App for Pebble
 
 This is an app for the Pebble Watch.  It shows a month view calendar.
 
@@ -26,3 +26,21 @@ daysOfWeek
 
 months
         array that holds the text used for the month text displayed at the top of the app.
+
+dayOfWeekOffset
+        Offset days of week. Values can be between -6 and 6 
+        0 = weeks start on Sunday
+        1 = weeks start on Monday
+        2 = weeks start on Tuesday 
+        
+        
+        
+Licence
+
+Copyright (C) 2013 William Heaton <William.G.Heaton@gmail.com>
+
+Calendar App for Pebble is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+
+Calendar App for Pebble is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with Calendar App for Pebble. If not, see http://www.gnu.org/licenses/.

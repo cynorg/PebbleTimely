@@ -19,8 +19,14 @@ Layer month_layer;
 Layer days_layer;
 
 const bool black = false;  // Is the background black
-const bool grid = true; // show the grid
+const bool grid = false; // show the grid
 const bool invert = true; // Invert colors on today's date
+
+
+// Offset days of week. Values can be between -6 and 6 
+// 0 = weeks start on Sunday
+// 1 =  weeks start on Monday
+const int  dayOfWeekOffset = 1; 
 
 const char daysOfWeek[7][3] = {"S","M","T","W","Th","F","S"};
 const char months[12][12] = {"January","Feburary","March","April","May","June","July","August","September","October", "November", "December"};
@@ -111,16 +117,18 @@ void setInvColors(GContext* ctx){
 void days_layer_update_callback(Layer *me, GContext* ctx) {
     (void)me;
     
+    int j;
+    int i;
+    
     PblTm currentTime;
     get_time(&currentTime);
     int mon = currentTime.tm_mon;
     int year = currentTime.tm_year+1900;
     
-    
     // Figure out which month & year we are going to be looking at based on the selected offset
     // Calculate how many days are between the first of this month and the first of the month we are interested in
-    int j = 0;
     int od = 0;
+    j = 0;
     while(j < abs(offset)){
         j++;
         if(offset > 0){
@@ -146,6 +154,10 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
     // Day of the week for the first day in the target month 
     int dow = wdayOfFirstOffset(currentTime.tm_wday,currentTime.tm_mday,od);
     
+    // Adjust day of week by specified offset
+    dow -= dayOfWeekOffset;
+    if(dow>6) dow-=7;
+    if(dow<0) dow+=7;
     
     // Cell geometry
     
@@ -165,8 +177,6 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
     int cw = lw-1;  // width of textarea
     int cl = l+1;
     int ch = bh-1;
-    int i;
-    
         
     setColors(ctx);
     
@@ -183,7 +193,19 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
     }
     // Draw days of week
     for(i=0;i<7;i++){
-        graphics_text_draw(ctx, daysOfWeek[i],  fonts_get_system_font(FONT_KEY_GOTHIC_14), GRect(cl+i*lw, 30, cw, 20), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL); 
+    
+        // Adjust labels by specified offset
+        j = i+dayOfWeekOffset;
+        if(j>6) j-=7;
+        if(j<0) j+=7;
+        graphics_text_draw(
+            ctx, 
+            daysOfWeek[j], 
+            fonts_get_system_font(FONT_KEY_GOTHIC_14), 
+            GRect(cl+i*lw, 30, cw, 20), 
+            GTextOverflowModeWordWrap, 
+            GTextAlignmentCenter, 
+            NULL); 
     }
     
     
@@ -205,7 +227,15 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
         if(i==currentTime.tm_mday && offset == 0){
             if(invert){
                 setInvColors(ctx);
-                graphics_fill_rect(ctx,GRect(l+dow*lw+1, b-(w-wknum)*bh+1, cw, ch),0,GCornerNone);
+                graphics_fill_rect(
+                    ctx,
+                    GRect(
+                        l+dow*lw+1, 
+                        b-(w-wknum)*bh+1, 
+                        cw, 
+                        ch)
+                    ,0
+                    ,GCornerNone);
             }
             font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
             fh = 20;
@@ -217,7 +247,18 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
         }
         
         // Draw the day
-        graphics_text_draw(ctx, intToStr(i),  font, GRect(cl+dow*lw, b-(-0.5+w-wknum)*bh-fh/2-1, cw, fh), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL); 
+        graphics_text_draw(
+            ctx, 
+            intToStr(i),  
+            font, 
+            GRect(
+                cl+dow*lw, 
+                b-(-0.5+w-wknum)*bh-fh/2-1, 
+                cw, 
+                fh), 
+            GTextOverflowModeWordWrap, 
+            GTextAlignmentCenter, 
+            NULL); 
         
         // Fix colors if inverted
         if(invert && offset == 0 && i==currentTime.tm_mday ) setColors(ctx);
@@ -256,7 +297,14 @@ void month_layer_update_callback(Layer *me, GContext* ctx) {
     strcat (str,intToStr(year));
     
     // Draw the MONTH/YEAR String
-    graphics_text_draw(ctx, str,  fonts_get_system_font(FONT_KEY_GOTHIC_24), GRect(0, 0, 144, 30), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
+    graphics_text_draw(
+        ctx, 
+        str,  
+        fonts_get_system_font(FONT_KEY_GOTHIC_24), 
+        GRect(0, 0, 144, 30), 
+        GTextOverflowModeWordWrap, 
+        GTextAlignmentCenter, 
+        NULL);
 }
 
 
