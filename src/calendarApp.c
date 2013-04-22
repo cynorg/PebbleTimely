@@ -345,7 +345,6 @@ void config_provider(ClickConfig **config, Window *window) {
 
 void handle_init(AppContextRef ctx) {
   (void)ctx;
-
     window_init(&window, "Calendar");
     window_stack_push(&window, false /* Animated */);
     window_set_fullscreen(&window, true);
