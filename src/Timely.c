@@ -75,13 +75,6 @@ char* intToStr(int val){
 	
 	return &buf[i+1];
 }
-// Calculate what day of the week it was on the first day of the month, if mday was a wday
-int wdayOfFirst(int wday,int mday){
-    int a = wday - ((mday-1)%7);
-    if(a<0) a += 7;
-    return a;
-}
-
 
 // How many days are/were in the month
 int daysInMonth(int mon, int year){
@@ -265,12 +258,7 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
     int fh;
     GFont font;
     int wknum = 0;
-    // Day of the week for the first day in the target month 
-    int dow = wdayOfFirst(currentTime.tm_wday,currentTime.tm_mday);
-    // Adjust day of week by specified offset
-    dow -= dayOfWeekOffset;
-    if(dow>6) dow-=7;
-    if(dow<0) dow+=7;
+    int dow = 0;
     
     for(i=0;i<21;i++) {
     
@@ -398,10 +386,7 @@ void handle_init(AppContextRef ctx) {
     text_layer_set_text_color(&text_time_layer, GColorBlack);
     text_layer_set_background_color(&text_time_layer, GColorClear);
   }
-  //layer_set_frame(&text_time_layer.layer, GRect(7, 22, 144-7, 168-22));
   text_layer_set_font(&text_time_layer, fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_ROBOTO_BOLD_SUBSET_49)));
-  //text_layer_set_font(&text_time_layer, fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_GOOGLE_REGULAR_56)));
-  //text_layer_set_font(&text_time_layer, fonts_get_system_font(FONT_KEY_GOTHAM_42_BOLD));
   text_layer_set_text_alignment(&text_time_layer, GTextAlignmentCenter);
   layer_add_child(&window.layer, &text_time_layer.layer);
 
