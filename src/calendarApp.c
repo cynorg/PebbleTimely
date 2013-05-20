@@ -4,30 +4,66 @@
 #include <math.h>
 #include "resource_ids.auto.h"
 
-#define MY_UUID { 0x8C, 0x77, 0x18, 0xB5, 0x81, 0x58, 0x48, 0xD9, 0x9D, 0x81, 0x1E, 0x3A, 0xB2, 0x32, 0xC9, 0x5C }
-PBL_APP_INFO(MY_UUID,
-             "Calendar", "William Heaton",
-             1, 0, /* App version */
-             RESOURCE_ID_IMAGE_MENU_ICON,
+/* CONFIGURATION Section
+ *
+ * If you want to customize things, do so here...
+ * If you fork this code and release the resulting app, please be considerate and change all the values in PBL_APP_INFO 
+ *
+ * comment out this define (// prefix )for the 'light' version, this will set everything appropriately throughout the code.
+ */
+#define TIMELY_DARK
+/* 
+ * Set START_OF_WEEK to a number between 0 and 6, 0 being Sunday, 6 being Saturday 
+ */
+#define START_OF_WEEK 0
+/* END CONFIGURATION Section
+ *
+ *  This watchface shows the current date and current time in the top 'half',
+ *    and then a small calendar w/ 3 weeks: last, current, and next week, in the bottom 'half'
+ *
+ */
+
+#define TIMELY_MAJOR 1
+#define TIMELY_MINOR 1
+#define UUID_DARK { 0x55, 0xF7, 0x74, 0x4B, 0xF5, 0x86, 0x45, 0xB8, 0x85, 0x4C, 0x55, 0x4F, 0x34, 0x48, 0x9F, 0x21 }
+#define UUID_LIGHT { 0x55, 0xF7, 0x74, 0x4B, 0xF5, 0x86, 0x45, 0xB8, 0x85, 0x4C, 0x55, 0x4F, 0x34, 0x48, 0x9F, 0x22 }
+
+#ifdef TIMELY_DARK
+PBL_APP_INFO(UUID_DARK,
+             "Timely Dark", "Martin Norland (@cynorg)",
+             TIMELY_MAJOR, TIMELY_MINOR, /* App version */
+             RESOURCE_ID_IMAGE_MENU_ICON_DARK,
+             APP_INFO_WATCH_FACE);
+#else
+PBL_APP_INFO(UUID_LIGHT,
+             "Timely Light", "Martin Norland (@cynorg)",
+             TIMELY_MAJOR, TIMELY_MINOR, /* App version */
+             RESOURCE_ID_IMAGE_MENU_ICON_LIGHT,
              APP_INFO_WATCH_FACE);
 
+#endif
 
 Window window;
+
+TextLayer text_time_layer;
 
 Layer month_layer;
 Layer days_layer;
 
-const bool black = true;  // Is the background black
+#ifdef TIMELY_DARK
+const bool black = true;  // Is the background black: don't change this, refer to the CONFIGURATION section at the top
+#else
+const bool black = false;  // Is the background black: don't change this, refer to the CONFIGURATION section at the top
+#endif
 const bool grid = true; // show the grid
 const bool invert = true; // Invert colors on today's date
 
-
-// Offset days of week. Values can be between -6 and 6 
+// Offset days of week. Values can be between 0 and 6.
 // 0 = weeks start on Sunday
 // 1 =  weeks start on Monday
-const int  dayOfWeekOffset = 0; 
+const int  dayOfWeekOffset = START_OF_WEEK; // don't change this, refer to the CONFIGURATION section at the top
 
-const char daysOfWeek[7][3] = {"S","M","T","W","Th","F","S"};
+const char daysOfWeek[7][3] = {"Su","Mo","Tu","We","Th","Fr","Sa"};
 
 char* intToStr(int val){
 
@@ -70,6 +106,7 @@ int daysInMonth(int mon, int year){
     else
         return 31;
 }
+
 void setColors(GContext* ctx){
     if(black){
         window_set_background_color(&window, GColorBlack);
@@ -83,6 +120,7 @@ void setColors(GContext* ctx){
         graphics_context_set_text_color(ctx, GColorBlack);
     }
 }
+
 void setInvColors(GContext* ctx){
     if(!black){
         graphics_context_set_stroke_color(ctx, GColorWhite);
@@ -96,7 +134,6 @@ void setInvColors(GContext* ctx){
     }
 }
 
-
 void days_layer_update_callback(Layer *me, GContext* ctx) {
     (void)me;
     
@@ -107,31 +144,86 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
     get_time(&currentTime);
     int mon = currentTime.tm_mon;
     int year = currentTime.tm_year+1900;
-    
+    int daysThisMonth = daysInMonth(mon,year);
 
-    // Days in the target month
-    int dom = daysInMonth(mon,year);
+    /* We're going to build an array to hold the dates to be shown in the calendar.
+     *
+     * There are five 'parts' we'll calculate for this (though since we only display 3 weeks, we'll only ever see at most 4 of them)
+     *
+     *   daysVisPrevMonth = days from the previous month that are visible
+     *   daysPriorToToday = days before today (including any days from previous month)
+     *   ( today )
+     *   daysAfterToday   = days after today (including any days from next month)
+     *   daysVisNextMonth = days from the following month that are visible
+     *
+     *  daysPriorToToday + 1 + daysAfterToday = 21, since we display exactly 3 weeks.
+     */
+    int calendar[21];
+    int cellNum = 0; // address for current day table cell: 0-20
+    int daysVisPrevMonth = 0;
+    int daysVisNextMonth = 0;
+    int daysPriorToToday = 7 + currentTime.tm_wday - dayOfWeekOffset;
+    int daysAfterToday   = 6 - currentTime.tm_wday + dayOfWeekOffset;
+    // tm_wday is based on Sunday being the startOfWeek, but Sunday may not be our startOfWeek.
+    if (currentTime.tm_wday < dayOfWeekOffset) { 
+      daysPriorToToday += 7; // we're <7, so in the 'first' week due to startOfWeek offset - 'add a week' before this one
+    } else {
+      daysAfterToday += 7;   // otherwise, we're already in the second week, so 'add a week' after
+    }
     
-    // Day of the week for the first day in the target month 
-    int dow = wdayOfFirst(currentTime.tm_wday,currentTime.tm_mday);
-    
-    // Adjust day of week by specified offset
-    dow -= dayOfWeekOffset;
-    if(dow>6) dow-=7;
-    if(dow<0) dow+=7;
-    
+    if ( daysPriorToToday >= currentTime.tm_mday ) {
+      // We're showing more days before today than exist this month
+      int daysInPrevMonth = daysInMonth(mon-1,year); // year only matters for February, which will be the same 'from' March
+
+      // Number of days we'll show from the previous month
+      daysVisPrevMonth = daysPriorToToday - currentTime.tm_mday + 1;
+
+      // TODO: trivialoptimize: *could* use just cellNum and drop the i, this time only, since it's the first.
+      for( i=0; i<daysVisPrevMonth; i++,cellNum++ ) {
+        calendar[cellNum] = daysInPrevMonth + i - daysVisPrevMonth + 1;
+      }
+    }
+
+    // optimization: instantiate i to a hot mess, since the first day we show this month may not be the 1st of the month
+    int firstDayShownThisMonth = (daysVisPrevMonth + currentTime.tm_mday - daysPriorToToday);
+    for( i=firstDayShownThisMonth; i<currentTime.tm_mday; i++,cellNum++ ) {
+      calendar[cellNum] = i;
+    }
+
+    int currentDay = cellNum; // the current day... we'll style this special
+    calendar[cellNum] = currentTime.tm_mday;
+    cellNum++;
+
+    if ( currentTime.tm_mday + daysAfterToday > daysThisMonth ) {
+      daysVisNextMonth = currentTime.tm_mday + daysAfterToday - daysThisMonth;
+    }
+
+    // add the days after today until the end of the month/next week, to our array...
+    int daysLeftThisMonth = daysAfterToday - daysVisNextMonth;
+    for( i=0; i<daysLeftThisMonth; i++,cellNum++ ) {
+      calendar[cellNum] = i + currentTime.tm_mday + 1;
+    }
+
+    // add any days in the next month to our array...
+    for( i=0; i<daysVisNextMonth; i++,cellNum++ ) {
+      calendar[cellNum] = i + 1;
+    }
+
+
+// ---------------------------
+// Now that we've calculated which days go where, we'll move on to the display logic.
+// ---------------------------
+
+
     // Cell geometry
     
     int l = 2;      // position of left side of left column
     int b = 167;    // position of bottom of bottom row
     int d = 7;      // number of columns (days of the week)
     int lw = 20;    // width of columns 
-    int w = ceil(((float) dow + (float) dom)/7); // number of weeks this month
+    int w = 3;      // always display 3 weeks: previous, current, next
     
-    int bh;    // How tall rows should be depends on how many weeks there are
-    if(w == 4)      bh = 30;
-    else if(w == 5) bh = 24;
-    else            bh = 20;
+    int bh = 20;    // How tall rows should be depends on how many weeks there are
         
     int r = l+d*lw; // position of right side of right column
     int t = b-w*bh; // position of top of top row
@@ -163,21 +255,27 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
             ctx, 
             daysOfWeek[j], 
             fonts_get_system_font(FONT_KEY_GOTHIC_14), 
-            GRect(cl+i*lw, 30, cw, 20), 
+            GRect(cl+i*lw, 90, cw, 20), 
             GTextOverflowModeWordWrap, 
             GTextAlignmentCenter, 
             NULL); 
     }
     
-    
-    
     // Fill in the cells with the month days
     int fh;
     GFont font;
     int wknum = 0;
+    // Day of the week for the first day in the target month 
+    int dow = wdayOfFirst(currentTime.tm_wday,currentTime.tm_mday);
+    // Adjust day of week by specified offset
+    dow -= dayOfWeekOffset;
+    if(dow>6) dow-=7;
+    if(dow<0) dow+=7;
     
-    for(i=1;i<=dom;i++){
+    for(i=0;i<21;i++) {
     
+        dow = i%7;
+        wknum = (i-dow)/7; 
         // New Weeks begin on Sunday
         if(dow > 6){
             dow = 0;
@@ -185,7 +283,7 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
         }
 
         // Is this today?  If so prep special today style
-        if(i==currentTime.tm_mday){
+        if(i==currentDay){
             if(invert){
                 setInvColors(ctx);
                 graphics_fill_rect(
@@ -206,11 +304,11 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
             font = fonts_get_system_font(FONT_KEY_GOTHIC_14);
             fh = 16;
         }
-        
+
         // Draw the day
         graphics_text_draw(
             ctx, 
-            intToStr(i),  
+            intToStr(calendar[i]),  
             font, 
             GRect(
                 cl+dow*lw, 
@@ -222,13 +320,11 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
             NULL); 
         
         // Fix colors if inverted
-        if(invert && i==currentTime.tm_mday ) setColors(ctx);
-        
-        // and on to the next day
-        dow++;   
+        if(invert && i==currentDay ) setColors(ctx);
+    
     }
-}
 
+}
 
 void month_layer_update_callback(Layer *me, GContext* ctx) {
     (void)me;
@@ -252,6 +348,29 @@ void month_layer_update_callback(Layer *me, GContext* ctx) {
         NULL);
 }
 
+void paint_time(PblTm* currentTime) {
+  // Need to be static because used by the system later.
+  static char time_text[] = "00:00";
+
+  char *time_format;
+
+  if (clock_is_24h_style()) {
+    time_format = "%R";
+  } else {
+    time_format = "%I:%M";
+  }
+
+  string_format_time(time_text, sizeof(time_text), time_format, currentTime);
+
+  // Kludge to handle lack of non-padded hour format string
+  // for twelve hour clock.
+  if (!clock_is_24h_style() && (time_text[0] == '0')) {
+    memmove(time_text, &time_text[1], sizeof(time_text) - 1);
+  }
+
+  text_layer_set_text(&text_time_layer, time_text);
+
+}
 
 void handle_init(AppContextRef ctx) {
   (void)ctx;
@@ -269,23 +388,52 @@ void handle_init(AppContextRef ctx) {
     days_layer.update_proc = &days_layer_update_callback;
     layer_add_child(&window.layer, &days_layer);
     
+    resource_init_current_app(&APP_RESOURCES);
+
+  text_layer_init(&text_time_layer, GRect(0, 26, 144, 168-22));
+  if(black){
+    text_layer_set_text_color(&text_time_layer, GColorWhite);
+    text_layer_set_background_color(&text_time_layer, GColorClear);
+  }else{
+    text_layer_set_text_color(&text_time_layer, GColorBlack);
+    text_layer_set_background_color(&text_time_layer, GColorClear);
+  }
+  //layer_set_frame(&text_time_layer.layer, GRect(7, 22, 144-7, 168-22));
+  text_layer_set_font(&text_time_layer, fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_ROBOTO_BOLD_SUBSET_49)));
+  //text_layer_set_font(&text_time_layer, fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_GOOGLE_REGULAR_56)));
+  //text_layer_set_font(&text_time_layer, fonts_get_system_font(FONT_KEY_GOTHAM_42_BOLD));
+  text_layer_set_text_alignment(&text_time_layer, GTextAlignmentCenter);
+  layer_add_child(&window.layer, &text_time_layer.layer);
+
+  PblTm currentTime;
+  get_time(&currentTime);
+  paint_time(&currentTime);
+
 }
 
-void handle_tick(AppContextRef ctx, PebbleTickEvent *t) {
-    (void)ctx;
-    layer_mark_dirty(&month_layer);
-    layer_mark_dirty(&days_layer);
+void handle_minute_tick(AppContextRef ctx, PebbleTickEvent *t) {
+
+  (void)ctx;
+
+  // TODO: Track the date and only call these updates when it's changed.
+  // TODO:  this is especially important because marking layers dirty redraws all visible layers
+  // TODO:  so it's not even like we're redrawing "just" half the screen every minute.
+  // TODO:  http://forums.getpebble.com/discussion/4597/timers-and-click-handlers-dont-mix
+  // TODO:  and http://forums.getpebble.com/discussion/4946/layers
+  layer_mark_dirty(&month_layer);
+  layer_mark_dirty(&days_layer);
+  paint_time(t->tick_time);
+
 }
+
 void pbl_main(void *params) {
   PebbleAppHandlers handlers = {
     .init_handler = &handle_init,
 
     .tick_info = {
-        .tick_handler = &handle_tick,
-        .tick_units = DAY_UNIT
+        .tick_handler = &handle_minute_tick,
+        .tick_units = MINUTE_UNIT
     }
   };
   app_event_loop(params, &handlers);
 }
-
-
