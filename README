@@ -1,41 +1,44 @@
 Calendar Watchface for Pebble
 
-This is a Watchface for the Pebble Watch.  It shows a month view calendar of the current month.  See master branch for app version that uses up/down buttons to navigate to next/previous months.
+This is a Watchface for the Pebble Watch.  It shows the current date and current time in the top half, and then a small calendar w/ 3 weeks: last, current, and next week, in the bottom half.
 
-Near the top of calendarApp.c you will find the following flags for configuring the appearance of the calendar. 
+Near the top of Timely.c you will find the following #defines and flags for configuring the appearance of the calendar.
 
-black:
-        true  = White text on Black Background
-        false = Black text on White Background
+#define TIMELY_DARK:
+        #defined  = Black text on White Background (default)
+        undefined = White text on Black Background
+
+#define START_OF_WEEK
+        Offset days of week. Values can be between 0 and 6 
+        0 = weeks start on Sunday
+        1 = weeks start on Monday
+        2 = weeks start on Tuesday 
 
 grid:
-        true  = Draws horizontal and vertical lines between the rows and columns
+        true  = Draws horizontal and vertical lines between the rows and columns (default)
         false = Does not draw said lines
 
 invert
-        true  = Todays date will be larger & bold and the Text & Background colors will be inverted
+        true  = Todays date will be larger & bold and the Text & Background colors will be inverted (default)
         false = Todays date will be larger & bold
 
 
 daysOfWeek
         array that holds the text used for the column headings
 
+        
+        
+        
+License
 
-dayOfWeekOffset
-        Offset days of week. Values can be between -6 and 6 
-        0 = weeks start on Sunday
-        1 = weeks start on Monday
-        2 = weeks start on Tuesday 
-        
-        
-        
-Licence
+Timely watchface [https://github.com/cynorg/PebbleTimely]
+Copyright (C) 2013 Martin Norland <cyn@cyn.org>
 
+Timely Watchface for Pebble is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+
+Timely Watchface for Pebble is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+Original PebbleCalendarWatch License [https://github.com/WilliamHeaton/PebbleCalendarWatch]
 Copyright (C) 2013 William Heaton <William.G.Heaton@gmail.com>
 
-Calendar Watchface for Pebble is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-
-Calendar Watchface for Pebble is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
-
-
-You should have received a copy of the GNU General Public License along with Calendar Watchface for Pebble. If not, see http://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with Timely Watchface for Pebble. If not, see http://www.gnu.org/licenses/.
