@@ -51,12 +51,13 @@ Layer month_layer;
 Layer days_layer;
 
 #ifdef TIMELY_DARK
-const bool black = true;  // Is the background black: don't change this, refer to the CONFIGURATION section at the top
+const bool black = true;       // Is the background black: don't change this, refer to the CONFIGURATION section at the top
 #else
-const bool black = false;  // Is the background black: don't change this, refer to the CONFIGURATION section at the top
+const bool black = false;      // Is the background black: don't change this, refer to the CONFIGURATION section at the top
 #endif
-const bool grid = true; // show the grid
-const bool invert = true; // Invert colors on today's date
+const bool grid = true;        // Show the grid
+const bool invert = true;      // Invert colors on today's date
+const bool vibe_hour = false;  // vibrate at the top of the hour?
 
 // Offset days of week. Values can be between 0 and 6.
 // 0 = weeks start on Sunday
@@ -400,15 +401,20 @@ void handle_minute_tick(AppContextRef ctx, PebbleTickEvent *t) {
 
   (void)ctx;
 
-  // TODO: Track the date and only call these updates when it's changed.
-  // TODO:  this is especially important because marking layers dirty redraws all visible layers
-  // TODO:  so it's not even like we're redrawing "just" half the screen every minute.
-  // TODO:  http://forums.getpebble.com/discussion/4597/timers-and-click-handlers-dont-mix
-  // TODO:  and http://forums.getpebble.com/discussion/4946/layers
-  layer_mark_dirty(&month_layer);
-  layer_mark_dirty(&days_layer);
   paint_time(t->tick_time);
+  if (t->tick_time->tm_min == 0 && t->tick_time->tm_sec == 0) {
+    // top of the hour, not simply changing to the watchface at 0 minutes past (tick handler is called after init)
+    if (vibe_hour) { vibes_short_pulse(); }
 
+    // TODO: Track the date and only call these updates when it's changed.
+    // TODO:  this is especially important because marking layers dirty redraws all visible layers
+    // TODO:  so it's not even like we're redrawing "just" half the screen every minute.
+    // TODO:  http://forums.getpebble.com/discussion/4597/timers-and-click-handlers-dont-mix
+    // TODO:  and http://forums.getpebble.com/discussion/4946/layers
+    // TODO: Note: it's unclear, right now, if redrawing *any* layer redraws the whole screen ;(
+    layer_mark_dirty(&month_layer);
+    layer_mark_dirty(&days_layer);
+  }
 }
 
 void pbl_main(void *params) {

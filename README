@@ -22,6 +22,9 @@ invert
         true  = Todays date will be larger & bold and the Text & Background colors will be inverted (default)
         false = Todays date will be larger & bold
 
+vibe_hour
+        false = Do not vibrate at the top of the hour (default)
+        true  = Vibrate at the top of the hour
 
 daysOfWeek
         array that holds the text used for the column headings
