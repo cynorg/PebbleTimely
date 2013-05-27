@@ -323,7 +323,9 @@ void month_layer_update_callback(Layer *me, GContext* ctx) {
     setColors(ctx);
     
     char str[20] = ""; 
-    string_format_time(str, sizeof(str), "%B %d, %Y", &currentTime);
+    // http://www.cplusplus.com/reference/ctime/strftime/
+    string_format_time(str, sizeof(str), "%B %d, %Y", &currentTime); // Month DD, YYYY
+    //string_format_time(str, sizeof(str), "%d.%m.%Y", &currentTime);  // DD.MM.YYYY
 
     
     // Draw the MONTH/YEAR String
