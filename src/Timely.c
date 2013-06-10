@@ -241,6 +241,17 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
     // Draw days of week
     for(i=0;i<7;i++){
     
+        // highlight day of week
+        if(i==currentTime.tm_wday){
+            if(invert){
+                setInvColors(ctx);
+                graphics_fill_rect(
+                    ctx,
+                    GRect(cl+i*lw, 90, cw, 18)
+                    ,0
+                    ,GCornerNone);
+            }
+        }
         // Adjust labels by specified offset
         j = i+dayOfWeekOffset;
         if(j>6) j-=7;
@@ -253,6 +264,8 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
             GTextOverflowModeWordWrap, 
             GTextAlignmentCenter, 
             NULL); 
+        // Fix colors if inverted
+        if(invert && i==currentTime.tm_wday) setColors(ctx);
     }
     
     // Fill in the cells with the month days
