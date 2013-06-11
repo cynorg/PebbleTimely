@@ -238,20 +238,19 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
             graphics_draw_line(ctx, GPoint(l+i*lw, t), GPoint(l+i*lw, b));
         }
     }
+
+    const char* dayFonts[2] = { FONT_KEY_GOTHIC_14, FONT_KEY_GOTHIC_14_BOLD };
+
+    int whichDayFont = 0; 
     // Draw days of week
     for(i=0;i<7;i++){
     
+        whichDayFont = 0; 
         // highlight day of week
         if(i==currentTime.tm_wday){
-            if(invert){
-                setInvColors(ctx);
-                graphics_fill_rect(
-                    ctx,
-                    GRect(cl+i*lw, 90, cw, 18)
-                    ,0
-                    ,GCornerNone);
-            }
+            whichDayFont = 1; 
         }
+
         // Adjust labels by specified offset
         j = i+dayOfWeekOffset;
         if(j>6) j-=7;
@@ -259,13 +258,11 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
         graphics_text_draw(
             ctx, 
             daysOfWeek[j], 
-            fonts_get_system_font(FONT_KEY_GOTHIC_14), 
+            fonts_get_system_font(dayFonts[whichDayFont]), 
             GRect(cl+i*lw, 90, cw, 20), 
             GTextOverflowModeWordWrap, 
             GTextAlignmentCenter, 
             NULL); 
-        // Fix colors if inverted
-        if(invert && i==currentTime.tm_wday) setColors(ctx);
     }
     
     // Fill in the cells with the month days
