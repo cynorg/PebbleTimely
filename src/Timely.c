@@ -3,23 +3,34 @@
 #include "pebble_fonts.h"
 #include <math.h>
 #include "resource_ids.auto.h"
+#include "config.h"
 
-/* CONFIGURATION Section
- *
- * If you want to customize things, do so here...
+/*
  * If you fork this code and release the resulting app, please be considerate and change all the values in PBL_APP_INFO 
  *
- * comment out this define (// prefix )for the 'light' version, this will set everything appropriately throughout the code.
- */
-#define TIMELY_DARK
-/* 
- * Set START_OF_WEEK to a number between 0 and 6, 0 being Sunday, 6 being Saturday 
- */
-#define START_OF_WEEK 0
-/* END CONFIGURATION Section
+ * CONFIGURATION Section
  *
+ * If you want to customize things, do so in config.h... options described below:
+ *
+ *   comment out this define for the 'light' version, this will set everything appropriately throughout the code.
+ *   #define TIMELY_DARK
+ *
+ *   comment out this define for the 'no vibration' version, this will set everything appropriately throughout the code.
+ *   #define TIMELY_VIBE
+ *
+ *   Set START_OF_WEEK to a number between 0 and 6, 0 being Sunday, 6 being Saturday 
+ *   #define START_OF_WEEK 1
+ *
+ * END CONFIGURATION Section
+ *
+ * BUILD command: builds all watchfaces using waf, places in /out:
+ *   ./publish.sh
+ * END BUILD Section
+ *
+ * DESCRIPTION
  *  This watchface shows the current date and current time in the top 'half',
  *    and then a small calendar w/ 3 weeks: last, current, and next week, in the bottom 'half'
+ * END DESCRIPTION Section
  *
  */
 
@@ -57,7 +68,12 @@ const bool black = false;      // Is the background black: don't change this, re
 #endif
 const bool grid = true;        // Show the grid
 const bool invert = true;      // Invert colors on today's date
+#ifdef TIMELY_VIBE
+const bool vibe_hour = true;   // vibrate at the top of the hour?
+#else
 const bool vibe_hour = false;  // vibrate at the top of the hour?
+#endif
+
 
 // Offset days of week. Values can be between 0 and 6.
 // 0 = weeks start on Sunday

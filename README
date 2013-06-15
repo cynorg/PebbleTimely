@@ -2,7 +2,9 @@ Calendar Watchface for Pebble
 
 This is a Watchface for the Pebble Watch.  It shows the current date and current time in the top half, and then a small calendar w/ 3 weeks: last, current, and next week, in the bottom half.
 
-Near the top of Timely.c you will find the following #defines and flags for configuring the appearance of the calendar.
+Inside src/config.h you will find the following #defines for configuring the watch face
+
+( There is also a bash script publish.sh that generates all the combinations automagically and copies them in /out )
 
 #define TIMELY_DARK:
         #defined  = Black text on White Background (default)
@@ -14,6 +16,12 @@ Near the top of Timely.c you will find the following #defines and flags for conf
         1 = weeks start on Monday
         2 = weeks start on Tuesday 
 
+#define TIMELY_VIBE
+        undefined = Do not vibrate at the top of the hour (default)
+        #defined  = Vibrate at the top of the hour
+
+Near the top of src/Timely.c you will find the following flags for configuring the appearance of the calendar.
+
 grid:
         true  = Draws horizontal and vertical lines between the rows and columns (default)
         false = Does not draw said lines
@@ -21,10 +29,6 @@ grid:
 invert
         true  = Todays date will be larger & bold and the Text & Background colors will be inverted (default)
         false = Todays date will be larger & bold
-
-vibe_hour
-        false = Do not vibrate at the top of the hour (default)
-        true  = Vibrate at the top of the hour
 
 daysOfWeek
         array that holds the text used for the column headings
