@@ -1,0 +1,33 @@
+{
+  "uuid": "55f7744b-f586-45b8-854c-554f34489f21",
+  "shortName": "Timely Dark",
+  "longName": "Timely Dark",
+  "companyName": "Martin Norland (@cynorg)",
+  "versionCode": 1,
+  "versionLabel": "1.2.0",
+  "watchapp": {
+    "watchface": true
+  },
+  "appKeys": {},
+  "resources": {
+    "media": [
+      {
+        "type": "png",
+        "name": "IMAGE_MENU_ICON_LIGHT",
+        "file": "images/menu_icon_timely.png"
+      },
+      {
+        "menuIcon": true,
+        "type": "png",
+        "name": "IMAGE_MENU_ICON_DARK",
+        "file": "images/menu_icon_timely_dark.png"
+      },
+      {
+        "characterRegex": "[:0-9]",
+        "type": "font",
+        "name": "FONT_ROBOTO_BOLD_SUBSET_49",
+        "file": "fonts/Roboto-Bold.ttf"
+      }
+    ]
+  }
+}

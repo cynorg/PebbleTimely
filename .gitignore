@@ -1,14 +1,3 @@
-# Standard Pebble development
-.lock-waf*
-.waf*
+# Ignore build generated files
 build
-include
-lib
-pebble_app.ld
-resources/wscript
-tools
-waf
-wscript
-
-# output folder from PebbleTimely publish.sh
-out/
+.lock-waf*
