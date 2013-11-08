@@ -3,9 +3,10 @@
 #include "config.h"
 
 /*
- * If you fork this code and release the resulting app, please be considerate and change all the values in PBL_APP_INFO 
+ * If you fork this code and release the resulting app, please be considerate and change all the values in appinfo.json.
  *
  * CONFIGURATION Section
+ * FIXME - This doesn't work yet for version 2.0.
  *
  * If you want to customize things, do so in config.h... options described below:
  *
@@ -30,28 +31,6 @@
  * END DESCRIPTION Section
  *
  */
-
-#define TIMELY_MAJOR 1
-#define TIMELY_MINOR 2
-#define UUID_DARK { 0x55, 0xF7, 0x74, 0x4B, 0xF5, 0x86, 0x45, 0xB8, 0x85, 0x4C, 0x55, 0x4F, 0x34, 0x48, 0x9F, 0x21 }
-#define UUID_LIGHT { 0x55, 0xF7, 0x74, 0x4B, 0xF5, 0x86, 0x45, 0xB8, 0x85, 0x4C, 0x55, 0x4F, 0x34, 0x48, 0x9F, 0x22 }
-
-#if 0
-#ifdef TIMELY_DARK
-PBL_APP_INFO(UUID_DARK,
-             "Timely Dark", "Martin Norland (@cynorg)",
-             TIMELY_MAJOR, TIMELY_MINOR, /* App version */
-             RESOURCE_ID_IMAGE_MENU_ICON_DARK,
-             APP_INFO_WATCH_FACE);
-#else
-PBL_APP_INFO(UUID_LIGHT,
-             "Timely Light", "Martin Norland (@cynorg)",
-             TIMELY_MAJOR, TIMELY_MINOR, /* App version */
-             RESOURCE_ID_IMAGE_MENU_ICON_LIGHT,
-             APP_INFO_WATCH_FACE);
-
-#endif
-#endif
 
 Window *window;
 
@@ -412,7 +391,7 @@ void handle_init() {
     text_layer_set_text_color(text_time_layer, GColorBlack);
     text_layer_set_background_color(text_time_layer, GColorClear);
   }
-  text_layer_set_font(text_time_layer, fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_ROBOTO_BOLD_SUBSET_49)));
+  text_layer_set_font(text_time_layer, fonts_get_system_font(FONT_KEY_ROBOTO_BOLD_SUBSET_49));
   text_layer_set_text_alignment(text_time_layer, GTextAlignmentCenter);
   layer_add_child(window_get_root_layer(window), text_layer_get_layer(text_time_layer));
 
