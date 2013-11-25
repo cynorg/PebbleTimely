@@ -1,29 +1,10 @@
 #include <pebble.h>
 #include <math.h>
-#include "config.h"
 
 /*
  * If you fork this code and release the resulting app, please be considerate and change all the values in appinfo.json.
  *
- * CONFIGURATION Section
- * FIXME - This doesn't work yet for version 2.0.
- *
- * If you want to customize things, do so in config.h... options described below:
- *
- *   comment out this define for the 'light' version, this will set everything appropriately throughout the code.
- *   #define TIMELY_DARK
- *
- *   comment out this define for the 'no vibration' version, this will set everything appropriately throughout the code.
- *   #define TIMELY_VIBE
- *
- *   Set START_OF_WEEK to a number between 0 and 6, 0 being Sunday, 6 being Saturday 
- *   #define START_OF_WEEK 1
- *
- * END CONFIGURATION Section
- *
- * BUILD command: builds all watchfaces using waf, places in /out:
- *   ./publish.sh
- * END BUILD Section
+ * FIXME - Configuration for version 2.0.
  *
  * DESCRIPTION
  *  This watchface shows the current date and current time in the top 'half',
@@ -32,44 +13,21 @@
  *
  */
 
-Window *window;
-
 TextLayer *text_time_layer;
-
-Layer *month_layer;
+TextLayer *month_layer;
 Layer *days_layer;
 
-#ifdef TIMELY_DARK
-const bool black = true;       // Is the background black: don't change this, refer to the CONFIGURATION section at the top
-#else
-const bool black = false;      // Is the background black: don't change this, refer to the CONFIGURATION section at the top
-#endif
-const bool grid = true;        // Show the grid
-const bool invert = true;      // Invert colors on today's date
-#ifdef TIMELY_VIBE
-const bool vibe_hour = true;   // vibrate at the top of the hour?
-#else
-const bool vibe_hour = false;  // vibrate at the top of the hour?
-#endif
-
+bool black = true;       // Is the background black
+bool grid = true;        // Show the grid
+bool invert = true;      // Invert colors on today's date
+bool vibe_hour = true;   // vibrate at the top of the hour?
 
 // Offset days of week. Values can be between 0 and 6.
 // 0 = weeks start on Sunday
 // 1 =  weeks start on Monday
-const int  dayOfWeekOffset = START_OF_WEEK; // don't change this, refer to the CONFIGURATION section at the top
+int dayOfWeekOffset = 0;
 
 const char daysOfWeek[7][3] = {"Su","Mo","Tu","We","Th","Fr","Sa"};
-
-char* intToStr(int val){
-
- 	static char buf[32] = {0};
-	
-	int i = 30;	
-	for(; val && i ; --i, val /= 10)
-		buf[i] = "0123456789"[val % 10];
-	
-	return &buf[i+1];
-}
 
 // How many days are/were in the month
 int daysInMonth(int mon, int year){
@@ -95,28 +53,18 @@ int daysInMonth(int mon, int year){
         return 31;
 }
 
-void setColors(GContext* ctx){
+void setColors(GContext* ctx, bool black){
+    GColor background, foreground;
     if(black){
-        graphics_context_set_stroke_color(ctx, GColorWhite);
-        graphics_context_set_fill_color(ctx, GColorBlack);
-        graphics_context_set_text_color(ctx, GColorWhite);
+        background = GColorBlack;
+        foreground = GColorWhite;
     }else{
-        graphics_context_set_stroke_color(ctx, GColorBlack);
-        graphics_context_set_fill_color(ctx, GColorWhite);
-        graphics_context_set_text_color(ctx, GColorBlack);
+        background = GColorWhite;
+        foreground = GColorBlack;
     }
-}
-
-void setInvColors(GContext* ctx){
-    if(!black){
-        graphics_context_set_stroke_color(ctx, GColorWhite);
-        graphics_context_set_fill_color(ctx, GColorBlack);
-        graphics_context_set_text_color(ctx, GColorWhite);
-    }else{
-        graphics_context_set_stroke_color(ctx, GColorBlack);
-        graphics_context_set_fill_color(ctx, GColorWhite);
-        graphics_context_set_text_color(ctx, GColorBlack);
-    }
+    graphics_context_set_stroke_color(ctx, foreground);
+    graphics_context_set_fill_color(ctx, background);
+    graphics_context_set_text_color(ctx, foreground);
 }
 
 void days_layer_update_callback(Layer *me, GContext* ctx) {
@@ -195,11 +143,9 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
       calendar[cellNum] = i + 1;
     }
 
-
-// ---------------------------
-// Now that we've calculated which days go where, we'll move on to the display logic.
-// ---------------------------
-
+    // ---------------------------
+    // Now that we've calculated which days go where, we'll move on to the display logic.
+    // ---------------------------
 
     // Cell geometry
     
@@ -217,7 +163,7 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
     int cl = l+1;
     int ch = bh-1;
         
-    setColors(ctx);
+    setColors(ctx, black);
     
     // Draw the Gridlines
     if(grid){
@@ -276,7 +222,7 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
         // Is this today?  If so prep special today style
         if(i==currentDay){
             if(invert){
-                setInvColors(ctx);
+                setColors(ctx, !black);
                 graphics_fill_rect(
                     ctx,
                     GRect(
@@ -291,133 +237,104 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
             fh = 20;
 
         // Normal (non-today) style
-        }else{
+        } else {
             font = fonts_get_system_font(FONT_KEY_GOTHIC_14);
             fh = 16;
         }
 
         // Draw the day
+        char date_text[3];
+        snprintf(date_text, sizeof(date_text), "%d", calendar[i]);
         graphics_draw_text(
-            ctx, 
-            intToStr(calendar[i]),  
-            font, 
+            ctx,
+            date_text,
+            font,
             GRect(
-                cl+dow*lw, 
-                b-(-0.5+w-wknum)*bh-fh/2-1, 
-                cw, 
-                fh), 
-            GTextOverflowModeWordWrap, 
-            GTextAlignmentCenter, 
+                cl+dow*lw,
+                b-(-0.5+w-wknum)*bh-fh/2-1,
+                cw,
+                fh),
+            GTextOverflowModeWordWrap,
+            GTextAlignmentCenter,
             NULL); 
         
         // Fix colors if inverted
-        if(invert && i==currentDay ) setColors(ctx);
-    
+        if(invert && i==currentDay ) setColors(ctx, black);
     }
-
 }
 
-void month_layer_update_callback(Layer *me, GContext* ctx) {
-    (void)me;
-
+void update_month_text() {
     time_t tt = time(0);
     struct tm *currentTime = localtime(&tt);
 
-    setColors(ctx);
-
-    char str[20] = ""; 
+    static char month_text[20];
     // http://www.cplusplus.com/reference/ctime/strftime/
-    strftime(str, sizeof(str), "%B %d, %Y", currentTime); // Month DD, YYYY
-    //strftime(str, sizeof(str), "%d.%m.%Y", currentTime);  // DD.MM.YYYY
+    strftime(month_text, sizeof(month_text), "%B %d, %Y", currentTime); // Month DD, YYYY
+    //strftime(month_text, sizeof(month_text), "%d.%m.%Y", currentTime);  // DD.MM.YYYY
 
-    // Draw the MONTH/YEAR String
-    graphics_draw_text(
-        ctx, 
-        str,  
-        fonts_get_system_font(FONT_KEY_GOTHIC_24), 
-        GRect(0, 0, 144, 30), 
-        GTextOverflowModeWordWrap, 
-        GTextAlignmentCenter, 
-        NULL);
+    text_layer_set_text(month_layer, month_text);
 }
 
-void paint_time(struct tm* currentTime) {
+void update_time_text() {
   // Need to be static because used by the system later.
-  static char time_text[] = "00:00";
-
-  char *time_format;
-
-  if (clock_is_24h_style()) {
-    time_format = "%R";
-  } else {
-    time_format = "%I:%M";
-  }
-
-  strftime(time_text, sizeof(time_text), time_format, currentTime);
-
-  // Kludge to handle lack of non-padded hour format string
-  // for twelve hour clock.
-  if (!clock_is_24h_style() && (time_text[0] == '0')) {
-    memmove(time_text, &time_text[1], sizeof(time_text) - 1);
-  }
-
+  static char time_text[6];
+  clock_copy_time_string(time_text, sizeof(time_text));
   text_layer_set_text(text_time_layer, time_text);
 }
 
-void handle_init() {
-    window = window_create();
-    window_stack_push(window, false /* Animated */);
-    window_set_fullscreen(window, true);
-
-    if (black) {
-        window_set_background_color(window, GColorBlack);
-    } else {
-        window_set_background_color(window, GColorWhite);
-    }
-
-    month_layer = layer_create(layer_get_frame(window_get_root_layer(window)));
-    layer_set_update_proc(month_layer, month_layer_update_callback);
-    layer_add_child(window_get_root_layer(window), month_layer);
-
-    days_layer = layer_create(layer_get_frame(window_get_root_layer(window)));
-    layer_set_update_proc(days_layer, days_layer_update_callback);
-    layer_add_child(window_get_root_layer(window), days_layer);
-    
-  text_time_layer = text_layer_create(GRect(0, 26, 144, 168-22));
-  if(black){
-    text_layer_set_text_color(text_time_layer, GColorWhite);
-    text_layer_set_background_color(text_time_layer, GColorClear);
-  }else{
-    text_layer_set_text_color(text_time_layer, GColorBlack);
-    text_layer_set_background_color(text_time_layer, GColorClear);
-  }
-  text_layer_set_font(text_time_layer, fonts_get_system_font(FONT_KEY_ROBOTO_BOLD_SUBSET_49));
-  text_layer_set_text_alignment(text_time_layer, GTextAlignmentCenter);
-  layer_add_child(window_get_root_layer(window), text_layer_get_layer(text_time_layer));
-
-  time_t tt = time(0);
-  paint_time(localtime(&tt));
-}
-
 void handle_minute_tick(struct tm *tick_time, TimeUnits units_changed) {
-  paint_time(tick_time);
-  if (tick_time->tm_min == 0 && tick_time->tm_sec == 0) {
-    // top of the hour, not simply changing to the watchface at 0 minutes past (tick handler is called after init)
-    if (vibe_hour) { vibes_short_pulse(); }
+  update_time_text();
 
-    // TODO: Track the date and only call these updates when it's changed.
-    // TODO:  this is especially important because marking layers dirty redraws all visible layers
-    // TODO:  so it's not even like we're redrawing "just" half the screen every minute.
-    // TODO:  http://forums.getpebble.com/discussion/4597/timers-and-click-handlers-dont-mix
-    // TODO:  and http://forums.getpebble.com/discussion/4946/layers
-    // TODO: Note: it's unclear, right now, if redrawing *any* layer redraws the whole screen ;(
-    layer_mark_dirty(month_layer);
+  if (units_changed & HOUR_UNIT && vibe_hour) {
+    vibes_short_pulse();
+  }
+
+  if (units_changed & MONTH_UNIT) {
+    update_month_text();
+  }
+
+  if (units_changed & DAY_UNIT) {
     layer_mark_dirty(days_layer);
   }
 }
 
+TextLayer *make_text_layer(GRect rect, const char *font_key)
+{
+    TextLayer *layer = text_layer_create(rect);
+  if(black){
+    text_layer_set_text_color(layer, GColorWhite);
+  }
+  text_layer_set_background_color(layer, GColorClear);
+  text_layer_set_text_alignment(layer, GTextAlignmentCenter);
+  text_layer_set_font(layer, fonts_get_system_font(font_key));
+  return layer;
+}
+
 int main() {
-  handle_init();
+    Window *window;
+
+    //FIXME - Configuration
+
+    window = window_create();
+    window_stack_push(window, false);
+
+    if (black) {
+        window_set_background_color(window, GColorBlack);
+    }
+
+    month_layer = make_text_layer(GRect(0, 0, 144, 30), FONT_KEY_GOTHIC_24);
+   layer_add_child(window_get_root_layer(window), text_layer_get_layer(month_layer));
+
+    days_layer = layer_create(layer_get_frame(window_get_root_layer(window)));
+    layer_set_update_proc(days_layer, days_layer_update_callback);
+    layer_add_child(window_get_root_layer(window), days_layer);
+
+  text_time_layer = make_text_layer(GRect(0, 26, 144, 168-22), FONT_KEY_ROBOTO_BOLD_SUBSET_49);
+  layer_add_child(window_get_root_layer(window), text_layer_get_layer(text_time_layer));
+
+  update_time_text();
+  update_month_text();
+
   tick_timer_service_subscribe(MINUTE_UNIT, handle_minute_tick);
   app_event_loop();
 }
