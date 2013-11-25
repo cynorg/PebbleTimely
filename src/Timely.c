@@ -13,9 +13,11 @@
  *
  */
 
-TextLayer *text_time_layer;
-TextLayer *month_layer;
-Layer *days_layer;
+struct
+{
+    TextLayer *text_time_layer;
+    TextLayer *month_layer;
+} ui;
 
 bool black = true;       // Is the background black
 bool grid = true;        // Show the grid
@@ -53,7 +55,9 @@ int daysInMonth(int mon, int year){
         return 31;
 }
 
-void setColors(GContext* ctx, bool black){
+void days_layer_update_callback(Layer *me, GContext* ctx) {
+    (void)me;
+
     GColor background, foreground;
     if(black){
         background = GColorBlack;
@@ -62,17 +66,7 @@ void setColors(GContext* ctx, bool black){
         background = GColorWhite;
         foreground = GColorBlack;
     }
-    graphics_context_set_stroke_color(ctx, foreground);
-    graphics_context_set_fill_color(ctx, background);
-    graphics_context_set_text_color(ctx, foreground);
-}
 
-void days_layer_update_callback(Layer *me, GContext* ctx) {
-    (void)me;
-    
-    int j;
-    int i;
-    
     time_t tt = time(0);
     struct tm currentTime = *localtime(&tt);
 
@@ -113,14 +107,14 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
       daysVisPrevMonth = daysPriorToToday - currentTime.tm_mday + 1;
 
       // TODO: trivialoptimize: *could* use just cellNum and drop the i, this time only, since it's the first.
-      for( i=0; i<daysVisPrevMonth; i++,cellNum++ ) {
+      for(int i=0; i<daysVisPrevMonth; i++,cellNum++ ) {
         calendar[cellNum] = daysInPrevMonth + i - daysVisPrevMonth + 1;
       }
     }
 
     // optimization: instantiate i to a hot mess, since the first day we show this month may not be the 1st of the month
     int firstDayShownThisMonth = (daysVisPrevMonth + currentTime.tm_mday - daysPriorToToday);
-    for( i=firstDayShownThisMonth; i<currentTime.tm_mday; i++,cellNum++ ) {
+    for(int i=firstDayShownThisMonth; i<currentTime.tm_mday; i++,cellNum++ ) {
       calendar[cellNum] = i;
     }
 
@@ -134,12 +128,12 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
 
     // add the days after today until the end of the month/next week, to our array...
     int daysLeftThisMonth = daysAfterToday - daysVisNextMonth;
-    for( i=0; i<daysLeftThisMonth; i++,cellNum++ ) {
+    for(int i=0; i<daysLeftThisMonth; i++,cellNum++ ) {
       calendar[cellNum] = i + currentTime.tm_mday + 1;
     }
 
     // add any days in the next month to our array...
-    for( i=0; i<daysVisNextMonth; i++,cellNum++ ) {
+    for(int i=0; i<daysVisNextMonth; i++,cellNum++ ) {
       calendar[cellNum] = i + 1;
     }
 
@@ -162,57 +156,51 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
     int cw = lw-1;  // width of textarea
     int cl = l+1;
     int ch = bh-1;
-        
-    setColors(ctx, black);
     
     // Draw the Gridlines
     if(grid){
+        graphics_context_set_stroke_color(ctx, foreground);
         // horizontal lines
-        for(i=1;i<=w;i++){
+        for(int i=1;i<=w;i++){
             graphics_draw_line(ctx, GPoint(l, b-i*bh), GPoint(r, b-i*bh));
         }
         // vertical lines
-        for(i=1;i<d;i++){
+        for(int i=1;i<d;i++){
             graphics_draw_line(ctx, GPoint(l+i*lw, t), GPoint(l+i*lw, b));
         }
     }
 
-    const char* dayFonts[2] = { FONT_KEY_GOTHIC_14, FONT_KEY_GOTHIC_14_BOLD };
+    GFont dayFontNormal = fonts_get_system_font(FONT_KEY_GOTHIC_14);
+    GFont dayFontHighlight = fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD);
 
-    int whichDayFont = 0; 
     // Draw days of week
-    for(i=0;i<7;i++){
-    
-        whichDayFont = 0; 
+    for(int i=0;i<7;i++){    
+        GFont whichDayFont;
         // highlight day of week
-        if(i==currentTime.tm_wday-dayOfWeekOffset){
-            whichDayFont = 1; 
+        int day = i+dayOfWeekOffset;
+        if(day==currentTime.tm_wday){
+            whichDayFont = dayFontHighlight;
+        } else {
+            whichDayFont = dayFontNormal;
         }
 
         // Adjust labels by specified offset
-        j = i+dayOfWeekOffset;
-        if(j>6) j-=7;
-        if(j<0) j+=7;
+        if(day>6) day-=7;
+        if(day<0) day+=7;
         graphics_draw_text(
-            ctx, 
-            daysOfWeek[j], 
-            fonts_get_system_font(dayFonts[whichDayFont]), 
-            GRect(cl+i*lw, 90, cw, 20), 
-            GTextOverflowModeWordWrap, 
-            GTextAlignmentCenter, 
+            ctx,
+            daysOfWeek[day],
+            whichDayFont,
+            GRect(cl+i*lw, 90, cw, 20),
+            GTextOverflowModeWordWrap,
+            GTextAlignmentCenter,
             NULL); 
     }
     
     // Fill in the cells with the month days
-    int fh;
-    GFont font;
-    int wknum = 0;
-    int dow = 0;
-    
-    for(i=0;i<21;i++) {
-    
-        dow = i%7;
-        wknum = (i-dow)/7; 
+    for(int i=0;i<21;i++) {
+        int dow = i%7;
+        int wknum = (i-dow)/7; 
         // New Weeks begin on Sunday
         if(dow > 6){
             dow = 0;
@@ -220,9 +208,12 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
         }
 
         // Is this today?  If so prep special today style
+        GFont font;
+        int fh;
         if(i==currentDay){
             if(invert){
-                setColors(ctx, !black);
+                graphics_context_set_text_color(ctx, background);
+                graphics_context_set_fill_color(ctx, foreground);
                 graphics_fill_rect(
                     ctx,
                     GRect(
@@ -235,11 +226,11 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
             }
             font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
             fh = 20;
-
-        // Normal (non-today) style
         } else {
-            font = fonts_get_system_font(FONT_KEY_GOTHIC_14);
+            // Normal (non-today) style
+            font = dayFontNormal;
             fh = 16;
+            graphics_context_set_text_color(ctx, foreground);
         }
 
         // Draw the day
@@ -257,9 +248,6 @@ void days_layer_update_callback(Layer *me, GContext* ctx) {
             GTextOverflowModeWordWrap,
             GTextAlignmentCenter,
             NULL); 
-        
-        // Fix colors if inverted
-        if(invert && i==currentDay ) setColors(ctx, black);
     }
 }
 
@@ -272,33 +260,31 @@ void update_month_text() {
     strftime(month_text, sizeof(month_text), "%B %d, %Y", currentTime); // Month DD, YYYY
     //strftime(month_text, sizeof(month_text), "%d.%m.%Y", currentTime);  // DD.MM.YYYY
 
-    text_layer_set_text(month_layer, month_text);
+    text_layer_set_text(ui.month_layer, month_text);
 }
 
 void update_time_text() {
   // Need to be static because used by the system later.
   static char time_text[6];
   clock_copy_time_string(time_text, sizeof(time_text));
-  text_layer_set_text(text_time_layer, time_text);
+  text_layer_set_text(ui.text_time_layer, time_text);
 }
 
 void handle_minute_tick(struct tm *tick_time, TimeUnits units_changed) {
   update_time_text();
 
-  if (units_changed & HOUR_UNIT && vibe_hour) {
-    vibes_short_pulse();
-  }
-
   if (units_changed & MONTH_UNIT) {
     update_month_text();
   }
 
-  if (units_changed & DAY_UNIT) {
-    layer_mark_dirty(days_layer);
+  if (units_changed & HOUR_UNIT && vibe_hour) {
+    vibes_short_pulse();
   }
+
+  // days_layer gets redrawn every time because time_text_layer is changed and all layers are redrawn together.
 }
 
-TextLayer *make_text_layer(GRect rect, const char *font_key)
+TextLayer *make_text_layer(Window *window, GRect rect, const char *font_key)
 {
     TextLayer *layer = text_layer_create(rect);
   if(black){
@@ -307,6 +293,7 @@ TextLayer *make_text_layer(GRect rect, const char *font_key)
   text_layer_set_background_color(layer, GColorClear);
   text_layer_set_text_alignment(layer, GTextAlignmentCenter);
   text_layer_set_font(layer, fonts_get_system_font(font_key));
+  layer_add_child(window_get_root_layer(window), text_layer_get_layer(layer));
   return layer;
 }
 
@@ -322,19 +309,16 @@ int main() {
         window_set_background_color(window, GColorBlack);
     }
 
-    month_layer = make_text_layer(GRect(0, 0, 144, 30), FONT_KEY_GOTHIC_24);
-   layer_add_child(window_get_root_layer(window), text_layer_get_layer(month_layer));
+    ui.month_layer = make_text_layer(window, GRect(0, 0, 144, 30), FONT_KEY_GOTHIC_24);
+    ui.text_time_layer = make_text_layer(window, GRect(0, 26, 144, 168-22), FONT_KEY_ROBOTO_BOLD_SUBSET_49);
 
-    days_layer = layer_create(layer_get_frame(window_get_root_layer(window)));
+    Layer *days_layer = layer_create(GRect(0, 0, 144, 168));
     layer_set_update_proc(days_layer, days_layer_update_callback);
     layer_add_child(window_get_root_layer(window), days_layer);
-
-  text_time_layer = make_text_layer(GRect(0, 26, 144, 168-22), FONT_KEY_ROBOTO_BOLD_SUBSET_49);
-  layer_add_child(window_get_root_layer(window), text_layer_get_layer(text_time_layer));
 
   update_time_text();
   update_month_text();
 
-  tick_timer_service_subscribe(MINUTE_UNIT, handle_minute_tick);
+  tick_timer_service_subscribe(SECOND_UNIT, handle_minute_tick);
   app_event_loop();
 }
