@@ -55,6 +55,12 @@ int daysInMonth(int mon, int year)
     }
 }
 
+struct tm *get_time()
+{
+    time_t tt = time(0);
+    return localtime(&tt);
+}
+
 void days_layer_update_callback(Layer *me, GContext *ctx)
 {
     (void)me;
@@ -69,77 +75,61 @@ void days_layer_update_callback(Layer *me, GContext *ctx)
         foreground = GColorBlack;
     }
 
-    time_t tt = time(0);
-    struct tm currentTime = *localtime(&tt);
+    struct tm *currentTime = get_time();
 
-    int mon = currentTime.tm_mon;
-    int year = currentTime.tm_year + 1900;
+    int mon = currentTime->tm_mon;
+    int year = currentTime->tm_year + 1900;
     int daysThisMonth = daysInMonth(mon, year);
 
     /* We're going to build an array to hold the dates to be shown in the calendar.
      *
-     * There are five 'parts' we'll calculate for this (though since we only display 3 weeks, we'll only ever see at most 4 of them)
+     * There are four 'parts' we'll calculate for this:
      *
      *   daysVisPrevMonth = days from the previous month that are visible
      *   daysPriorToToday = days before today (including any days from previous month)
      *   ( today )
-     *   daysAfterToday   = days after today (including any days from next month)
-     *   daysVisNextMonth = days from the following month that are visible
-     *
-     *  daysPriorToToday + 1 + daysAfterToday = 21, since we display exactly 3 weeks.
+     *   ( days after today, including any days from next month )
      */
     int calendar[21];
     int cellNum = 0; // address for current day table cell: 0-20
     int daysVisPrevMonth = 0;
-    int daysVisNextMonth = 0;
-    int daysPriorToToday = 7 + currentTime.tm_wday - dayOfWeekOffset;
-    int daysAfterToday   = 6 - currentTime.tm_wday + dayOfWeekOffset;
+    int daysPriorToToday = 7 + currentTime->tm_wday - dayOfWeekOffset;
+    int today = currentTime->tm_mday;
 
     // tm_wday is based on Sunday being the startOfWeek, but Sunday may not be our startOfWeek.
-    if (currentTime.tm_wday < dayOfWeekOffset) {
+    if (currentTime->tm_wday < dayOfWeekOffset) {
         daysPriorToToday += 7; // we're <7, so in the 'first' week due to startOfWeek offset - 'add a week' before this one
-    } else {
-        daysAfterToday += 7;   // otherwise, we're already in the second week, so 'add a week' after
     }
 
-    if (daysPriorToToday >= currentTime.tm_mday) {
+    if (daysPriorToToday >= today) {
         // We're showing more days before today than exist this month
         int daysInPrevMonth = daysInMonth(mon - 1, year); // year only matters for February, which will be the same 'from' March
 
         // Number of days we'll show from the previous month
-        daysVisPrevMonth = daysPriorToToday - currentTime.tm_mday + 1;
+        daysVisPrevMonth = daysPriorToToday - today + 1;
 
-        // TODO: trivialoptimize: *could* use just cellNum and drop the i, this time only, since it's the first.
         for (int i = 0; i < daysVisPrevMonth; i++, cellNum++) {
             calendar[cellNum] = daysInPrevMonth + i - daysVisPrevMonth + 1;
         }
     }
 
-    // optimization: instantiate i to a hot mess, since the first day we show this month may not be the 1st of the month
-    int firstDayShownThisMonth = (daysVisPrevMonth + currentTime.tm_mday - daysPriorToToday);
+    int firstDayShownThisMonth = daysVisPrevMonth + today - daysPriorToToday;
 
-    for (int i = firstDayShownThisMonth; i < currentTime.tm_mday; i++, cellNum++) {
-        calendar[cellNum] = i;
-    }
+    // the current day's cell... we'll style this special
+    int currentDay = cellNum + today - firstDayShownThisMonth;
 
-    int currentDay = cellNum; // the current day... we'll style this special
-    calendar[cellNum] = currentTime.tm_mday;
-    cellNum++;
+    // Add days from this month and the next.
+    int day = firstDayShownThisMonth;
+    for (; cellNum < 21; cellNum++) {
+        calendar[cellNum] = day;
 
-    if (currentTime.tm_mday + daysAfterToday > daysThisMonth) {
-        daysVisNextMonth = currentTime.tm_mday + daysAfterToday - daysThisMonth;
-    }
-
-    // add the days after today until the end of the month/next week, to our array...
-    int daysLeftThisMonth = daysAfterToday - daysVisNextMonth;
-
-    for (int i = 0; i < daysLeftThisMonth; i++, cellNum++) {
-        calendar[cellNum] = i + currentTime.tm_mday + 1;
-    }
-
-    // add any days in the next month to our array...
-    for (int i = 0; i < daysVisNextMonth; i++, cellNum++) {
-        calendar[cellNum] = i + 1;
+        day++;
+        if (day > daysThisMonth) {
+            // Start at the beginning of next month.
+            // We don't care how many days are in next month because
+            // we will always show less than two weeks of it.
+            day = 1;
+        }
     }
 
     // ---------------------------
@@ -186,7 +176,7 @@ void days_layer_update_callback(Layer *me, GContext *ctx)
         // highlight day of week
         int day = i + dayOfWeekOffset;
 
-        if (day == currentTime.tm_wday) {
+        if (day == currentTime->tm_wday) {
             whichDayFont = dayFontHighlight;
         } else {
             whichDayFont = dayFontNormal;
@@ -219,7 +209,7 @@ void days_layer_update_callback(Layer *me, GContext *ctx)
         // New Weeks begin on Sunday
         if (dow > 6) {
             dow = 0;
-            wknum ++;
+            wknum++;
         }
 
         // Is this today?  If so prep special today style
@@ -270,8 +260,7 @@ void days_layer_update_callback(Layer *me, GContext *ctx)
 
 void update_month_text()
 {
-    time_t tt = time(0);
-    struct tm *currentTime = localtime(&tt);
+    struct tm *currentTime = get_time();
 
     static char month_text[20];
     // http://www.cplusplus.com/reference/ctime/strftime/
@@ -342,6 +331,7 @@ int main()
     update_time_text();
     update_month_text();
 
-    tick_timer_service_subscribe(SECOND_UNIT, handle_minute_tick);
+    tick_timer_service_subscribe(MINUTE_UNIT, handle_minute_tick);
+
     app_event_loop();
 }
