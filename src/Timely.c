@@ -138,32 +138,32 @@ void days_layer_update_callback(Layer *me, GContext *ctx)
 
     // Cell geometry
 
-    int l = 2;      // position of left side of left column
-    int b = 167;    // position of bottom of bottom row
+    int left = 2;      // position of left side of left column
+    int bottom = 167;    // position of bottom of bottom row
     int d = 7;      // number of columns (days of the week)
     int lw = 20;    // width of columns
     int w = 3;      // always display 3 weeks: previous, current, next
 
     int bh = 20;    // How tall rows should be depends on how many weeks there are
 
-    int r = l + d * lw; // position of right side of right column
-    int t = b - w * bh; // position of top of top row
+    int right = left + d * lw; // position of right side of right column
+    int top = bottom - w * bh; // position of top of top row
     int cw = lw - 1; // width of textarea
-    int cl = l + 1;
+    int cl = left + 1;
     int ch = bh - 1;
 
-    // Draw the Gridlines
+    // Draw the grid.
     if (grid) {
         graphics_context_set_stroke_color(ctx, foreground);
 
         // horizontal lines
         for (int i = 1; i <= w; i++) {
-            graphics_draw_line(ctx, GPoint(l, b - i * bh), GPoint(r, b - i * bh));
+            graphics_draw_line(ctx, GPoint(left, bottom - i * bh), GPoint(right, bottom - i * bh));
         }
 
         // vertical lines
         for (int i = 1; i < d; i++) {
-            graphics_draw_line(ctx, GPoint(l + i * lw, t), GPoint(l + i * lw, b));
+            graphics_draw_line(ctx, GPoint(left + i * lw, top), GPoint(left + i * lw, bottom));
         }
     }
 
@@ -171,24 +171,20 @@ void days_layer_update_callback(Layer *me, GContext *ctx)
     GFont dayFontHighlight = fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD);
 
     // Draw days of week
+    graphics_context_set_text_color(ctx, foreground);
     for (int i = 0; i < 7; i++) {
-        GFont whichDayFont;
-        // highlight day of week
+        // Adjust labels by specified offset.
         int day = i + dayOfWeekOffset;
-
-        if (day == currentTime->tm_wday) {
-            whichDayFont = dayFontHighlight;
-        } else {
-            whichDayFont = dayFontNormal;
-        }
-
-        // Adjust labels by specified offset
         if (day > 6) {
             day -= 7;
         }
 
-        if (day < 0) {
-            day += 7;
+        // Highlight today's column.
+        GFont whichDayFont;
+        if (day == currentTime->tm_wday) {
+            whichDayFont = dayFontHighlight;
+        } else {
+            whichDayFont = dayFontNormal;
         }
 
         graphics_draw_text(
@@ -202,59 +198,55 @@ void days_layer_update_callback(Layer *me, GContext *ctx)
     }
 
     // Fill in the cells with the month days
-    for (int i = 0; i < 21; i++) {
-        int dow = i % 7;
-        int wknum = (i - dow) / 7;
+    cellNum = 0;
+    for (int wknum = 0; wknum < 3; wknum++) {
+        for (int dow = 0; dow < 7; dow++) {
+            // Is this today?  If so prep special today style
+            GFont font;
+            int fh;
 
-        // New Weeks begin on Sunday
-        if (dow > 6) {
-            dow = 0;
-            wknum++;
-        }
+            if (cellNum == currentDay) {
+                if (invert) {
+                    graphics_context_set_text_color(ctx, background);
+                    graphics_context_set_fill_color(ctx, foreground);
+                    graphics_fill_rect(
+                        ctx,
+                        GRect(
+                            left + dow * lw + 1,
+                            top + bh * wknum + 1,
+                            cw,
+                            ch),
+                        0,
+                        GCornerNone);
+                }
 
-        // Is this today?  If so prep special today style
-        GFont font;
-        int fh;
-
-        if (i == currentDay) {
-            if (invert) {
-                graphics_context_set_text_color(ctx, background);
-                graphics_context_set_fill_color(ctx, foreground);
-                graphics_fill_rect(
-                    ctx,
-                    GRect(
-                        l + dow * lw + 1,
-                        b - (w - wknum)*bh + 1,
-                        cw,
-                        ch)
-                    , 0
-                    , GCornerNone);
+                font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
+                fh = 24;
+            } else {
+                // Normal (non-today) style
+                font = dayFontNormal;
+                fh = 18;
+                graphics_context_set_text_color(ctx, foreground);
             }
 
-            font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
-            fh = 20;
-        } else {
-            // Normal (non-today) style
-            font = dayFontNormal;
-            fh = 16;
-            graphics_context_set_text_color(ctx, foreground);
-        }
+            // Draw the day
+            char date_text[3];
+            snprintf(date_text, sizeof(date_text), "%d", calendar[cellNum]);
+            graphics_draw_text(
+                ctx,
+                date_text,
+                font,
+                GRect(
+                    cl + dow * lw,
+                    top + bh / 2 + bh * wknum - fh / 2,
+                    cw,
+                    fh),
+                GTextOverflowModeWordWrap,
+                GTextAlignmentCenter,
+                NULL);
 
-        // Draw the day
-        char date_text[3];
-        snprintf(date_text, sizeof(date_text), "%d", calendar[i]);
-        graphics_draw_text(
-            ctx,
-            date_text,
-            font,
-            GRect(
-                cl + dow * lw,
-                b - (-0.5 + w - wknum)*bh - fh / 2 - 1,
-                cw,
-                fh),
-            GTextOverflowModeWordWrap,
-            GTextAlignmentCenter,
-            NULL);
+            cellNum++;
+        }
     }
 }
 
