@@ -18,10 +18,10 @@ struct {
     TextLayer *month_layer;
 } ui;
 
-bool black = true;       // Is the background black
-bool grid = true;        // Show the grid
-bool invert = true;      // Invert colors on today's date
-bool vibe_hour = true;   // vibrate at the top of the hour?
+bool black = true;        // Is the background black
+bool grid = true;         // Show the grid
+bool invert = true;       // Invert colors on today's date
+bool vibe_hour = false;   // vibrate at the top of the hour?
 
 // Offset days of week. Values can be between 0 and 6.
 // 0 = weeks start on Sunday
