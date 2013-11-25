@@ -38,10 +38,8 @@ int daysInMonth(int mon, int year)
     // April, June, September and November have 30 Days
     if (mon == 4 || mon == 6 || mon == 9 || mon == 11) {
         return 30;
-    }
-
-    // Deal with Feburary & Leap years
-    else if (mon == 2) {
+    } else if (mon == 2) {
+        // Deal with Feburary & Leap years
         if (year % 400 == 0) {
             return 29;
         } else if (year % 100 == 0) {
@@ -51,9 +49,8 @@ int daysInMonth(int mon, int year)
         } else {
             return 28;
         }
-    }
-    // Most months have 31 days
-    else {
+    } else {
+        // Most months have 31 days
         return 31;
     }
 }
