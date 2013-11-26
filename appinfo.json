@@ -1,14 +1,20 @@
 {
-  "uuid": "209296c2-153d-44a4-868a-a187ea724646",
+  "uuid": "55f7744b-f586-45b8-854c-554f34489f20",
   "shortName": "Timely",
   "longName": "Timely 2.0",
-  "companyName": "circuitben.net",
-  "versionCode": 1,
+  "companyName": "Martin Norland (@cynorg)",
+  "versionCode": 2,
   "versionLabel": "2.0.0",
   "watchapp": {
     "watchface": true
   },
-  "appKeys": {},
+  "appKeys": {
+    "style_inv":     0,
+    "style_day_inv": 1,
+    "style_grid":    2,
+    "vibe_hour":     3,
+    "intl_dowo":     4
+  },
   "resources": {
     "media": [
       {
@@ -16,6 +22,21 @@
         "type": "png",
         "name": "IMAGE_MENU_ICON_DARK",
         "file": "images/menu_icon_timely_dark.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_BT_NOLINK_ICON",
+        "file": "images/bluetooth_20_20.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_BT_LINKED_ICON",
+        "file": "images/bluetooth_thick_20_20.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_CHARGING_ICON",
+        "file": "images/charging_20_20.png"
       }
     ]
   }

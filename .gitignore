@@ -1,3 +1,5 @@
 # Ignore build generated files
 build
 .lock-waf*
+pebble-screenshot*
+.*.swp
