@@ -1,13 +1,12 @@
 Calendar Watchface for Pebble
 
-This is a Watchface for the Pebble Watch.  It shows the current date and current time in the top half, and then a small calendar w/ 3 weeks: last, current, and next week, in the bottom half.
+This is a Watchface for the Pebble Watch.  It shows the current date and current time in the top 'half', and then a small calendar w/ 3 weeks: last, current, and next week, in the bottom 'half'.  The statusbar at the top shows the connection status, charging, and battery level - and it will vibrate on link lost.
+
+The settings for the face are configurable using the new PebbleKit JS configuration page.
 
 This is a work in progress: it will eventually support a configuration screen on the phone to set styles.
         
 License
-
-Pebble SDK 2.0 updates by Ben Johnson.
-https://github.com/cktben/PebbleTimely.git
 
 Timely watchface [https://github.com/cynorg/PebbleTimely]
 Copyright (C) 2013 Martin Norland <cyn@cyn.org>
@@ -15,6 +14,8 @@ Copyright (C) 2013 Martin Norland <cyn@cyn.org>
 Timely Watchface for Pebble is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 
 Timely Watchface for Pebble is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+Includes updates, contributions and improvements from Ben Johnson [https://github.com/cktben/PebbleTimely.git]
 
 Original PebbleCalendarWatch License [https://github.com/WilliamHeaton/PebbleCalendarWatch]
 Copyright (C) 2013 William Heaton <William.G.Heaton@gmail.com>
