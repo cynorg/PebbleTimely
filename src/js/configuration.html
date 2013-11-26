@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Configuration</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="http://code.jquery.com/mobile/1.3.2/jquery.mobile-1.3.2.min.css" />
+    <script src="http://code.jquery.com/jquery-1.9.1.min.js"></script>
+    <script src="http://code.jquery.com/mobile/1.3.2/jquery.mobile-1.3.2.min.js"></script>
+  </head>
+  <body>
+    <div data-role="page" id="main">
+      <div data-role="header" class="jqm-header">
+        <h1>Configuration</h1>
+      </div>
+
+      <div data-role="content">
+
+<div data-role="collapsible-set" data-theme="c" data-content-theme="d" data-mini="false">
+    <div data-role="collapsible" data-collapsed="false">
+        <h3>General</h3>
+
+<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true">
+    <legend>Theme:</legend>
+        <input name="key0" id="key0-0" value="0" checked="checked" type="radio">
+        <label for="key0-0">Dark</label>
+        <input name="key0" id="key0-1" value="1" type="radio">
+        <label for="key0-1">Light</label>
+</fieldset>
+
+<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true">
+    <legend>Hourly Vibration:</legend>
+        <input name="key3" id="key3-0" value="0" checked="checked" type="radio">
+        <label for="key3-0">No</label>
+        <input name="key3" id="key3-1" value="1" type="radio">
+        <label for="key3-1">Yes</label>
+</fieldset>
+
+    </div>
+    <div data-role="collapsible">
+        <h3>Calendar</h3>
+
+<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true">
+    <legend>Invert Today:</legend>
+        <input name="key1" id="key1-1" value="1" checked="checked" type="radio">
+        <label for="key1-1">Yes</label>
+        <input name="key1" id="key1-0" value="0" type="radio">
+        <label for="key1-0">No</label>
+</fieldset>
+
+<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true">
+    <legend>Grid:</legend>
+        <input name="key2" id="key2-1" value="1" checked="checked" type="radio">
+        <label for="key2-1">Yes</label>
+        <input name="key2" id="key2-0" value="0" type="radio">
+        <label for="key2-0">No</label>
+</fieldset>
+
+<div data-role="fieldcontain">
+<label for="key4">Calendar: Start of Week</label>
+    <select name="key4" id="key4">
+      <option value="0">Sunday</option>
+      <option value="1">Monday</option>
+      <option value="2">Tuesday</option>
+      <option value="3">Wednesday</option>
+      <option value="4">Thursday</option>
+      <option value="5">Friday</option>
+      <option value="6">Saturday</option>
+    </select>
+</fieldset>
+
+    </div>
+</div>
+<br />
+        <div class="ui-body ui-body-c">
+          <fieldset class="ui-grid-a">
+              <div class="ui-block-a"><button type="submit" data-theme="d" id="b-cancel">Cancel</button></div>
+              <div class="ui-block-b"><button type="submit" data-theme="a" id="b-submit">Submit</button></div>
+          </fieldset>
+        </div>
+      </div>
+    </div>
+    <script>
+      function saveOptions() {
+        var options = {
+          'style_inv':     Number( $("input[name=key0]:checked").val() ),
+          'style_day_inv': Number( $("input[name=key1]:checked").val() ),
+          'style_grid':    Number( $("input[name=key2]:checked").val() ),
+          'vibe_hour':     Number( $("input[name=key3]:checked").val() ),
+          'intl_dowo':     Number( $("#key4").val() ),
+        }
+        return options;
+      }
+
+      $().ready(function() {
+       if (typeof window.localStorage !== "undefined") {
+        if (window.localStorage.pebble_timely_options) {
+          ls_pto = JSON.parse(window.localStorage.pebble_timely_options);
+          // the Pebble webview dies on the next line...
+          $("input[name=key0][id=key0-"+ls_pto["style_inv"]+"]").prop('checked',true);
+          $("input[name=key0]").checkboxradio('refresh');
+          $("input[name=key1][id=key1-"+ls_pto["style_day_inv"]+"]").prop('checked',true);
+          $("input[name=key1]").checkboxradio('refresh');
+          $("input[name=key2][id=key2-"+ls_pto["style_grid"]+"]").prop('checked',true);
+          $("input[name=key2]").checkboxradio('refresh');
+          $("input[name=key3][id=key3-"+ls_pto["vibe_hour"]+"]").prop('checked',true);
+          $("input[name=key3]").checkboxradio('refresh');
+          $("#key4").val(ls_pto["intl_dowo"]).attr('selected', true).siblings('option').removeAttr('selected');
+          $("#key4").selectmenu("refresh", true);
+        }
+       }
+        $("#b-cancel").click(function() {
+          console.log("Cancel");
+          document.location = "pebblejs://close";
+        });
+
+        $("#b-submit").click(function() {
+          console.log("Submit");
+
+          ls_pto = JSON.stringify(saveOptions());
+          if (typeof window.localStorage !== "undefined") {
+            window.localStorage.pebble_timely_options = ls_pto;
+          }
+          var location = "pebblejs://close#" + encodeURIComponent(ls_pto);
+          console.log("Warping to: " + location);
+          console.log(location);
+          document.location = location;
+        });
+
+      });
+    </script>
+  </body>
+</html>

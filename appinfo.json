@@ -8,6 +8,7 @@
   "watchapp": {
     "watchface": true
   },
+  "capabilities": [ "configurable" ],
   "appKeys": {
     "style_inv":     0,
     "style_day_inv": 1,
