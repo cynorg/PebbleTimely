@@ -1,0 +1,22 @@
+{
+  "uuid": "209296c2-153d-44a4-868a-a187ea724646",
+  "shortName": "Timely",
+  "longName": "Timely 2.0",
+  "companyName": "circuitben.net",
+  "versionCode": 1,
+  "versionLabel": "2.0.0",
+  "watchapp": {
+    "watchface": true
+  },
+  "appKeys": {},
+  "resources": {
+    "media": [
+      {
+        "menuIcon": true,
+        "type": "png",
+        "name": "IMAGE_MENU_ICON_DARK",
+        "file": "images/menu_icon_timely_dark.png"
+      }
+    ]
+  }
+}
