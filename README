@@ -4,8 +4,6 @@ This is a Watchface for the Pebble Watch.  It shows the current date and current
 
 The settings for the face are configurable using the new PebbleKit JS configuration page.
 
-This is a work in progress: it will eventually support a configuration screen on the phone to set styles.
-        
 License
 
 Timely watchface [https://github.com/cynorg/PebbleTimely]
