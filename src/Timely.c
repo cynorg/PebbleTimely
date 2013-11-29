@@ -29,6 +29,7 @@ static GBitmap *image_connection_icon;
 static GBitmap *image_noconnection_icon;
 static BitmapLayer *bmp_charging_layer;
 static GBitmap *image_charging_icon;
+static GBitmap *image_hourvibe_icon;
 static TextLayer *text_connection_layer; // TODO: temporary?
 static TextLayer *text_battery_layer;
 
@@ -495,15 +496,22 @@ static void handle_battery(BatteryChargeState charge_state) {
   if (charge_state.is_charging) { // charging
     snprintf(battery_text, sizeof(battery_text), "%d", charge_state.charge_percent);
     layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), false);
+    bitmap_layer_set_bitmap(bmp_charging_layer, image_charging_icon);
 //    if (charge_state.is_plugged) {
 //      vibes_short_pulse(); // XXX: testing that is_plugged is implemented
 //    }
   } else {
-    layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), true);
     if (charge_state.is_plugged) { // plugged but not charging = charging complete...
+      layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), true);
       snprintf(battery_text, sizeof(battery_text), "%d", charge_state.charge_percent);
       //vibes_short_pulse(); 
     } else { // normal wear
+      if(settings.vibe_hour) {
+        layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), false);
+        bitmap_layer_set_bitmap(bmp_charging_layer, image_hourvibe_icon);
+      } else {
+        layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), true);
+      }
       snprintf(battery_text, sizeof(battery_text), "%d", charge_state.charge_percent);
     }
   }
@@ -550,7 +558,12 @@ static void window_load(Window *window) {
   bmp_charging_layer = bitmap_layer_create( GRect(STAT_CHRG_ICON_LEFT, STAT_CHRG_ICON_TOP, 20, 20) );
   layer_add_child(statusbar, bitmap_layer_get_layer(bmp_charging_layer));
   image_charging_icon = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_CHARGING_ICON);
-  bitmap_layer_set_bitmap(bmp_charging_layer, image_charging_icon);
+  image_hourvibe_icon = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_HOURVIBE_ICON);
+  if(settings.vibe_hour) {
+    bitmap_layer_set_bitmap(bmp_charging_layer, image_hourvibe_icon);
+  } else {
+    layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), true);
+  }
 
   battery_layer = layer_create(stat_bounds);
   layer_set_update_proc(battery_layer, battery_layer_update_callback);
@@ -630,6 +643,7 @@ static void window_unload(Window *window) {
   gbitmap_destroy(image_connection_icon);
   gbitmap_destroy(image_noconnection_icon);
   gbitmap_destroy(image_charging_icon);
+  gbitmap_destroy(image_hourvibe_icon);
   layer_destroy(slot_bot);
   layer_destroy(slot_top);
   layer_destroy(statusbar);
@@ -700,6 +714,12 @@ void my_in_rcv_handler(DictionaryIterator *received, void *context) {
     Tuple *vibe_hour = dict_find(received, AK_VIBE_HOUR);
     if(vibe_hour != NULL) {
       settings.vibe_hour = vibe_hour->value->uint8;
+      if (settings.vibe_hour && !battery_plugged) {
+        layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), false);
+        bitmap_layer_set_bitmap(bmp_charging_layer, image_hourvibe_icon);
+      } else if (!battery_charging) {
+        layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), true);
+      }
     }
 
     // INTL_DOWO == dayOfWeekOffset

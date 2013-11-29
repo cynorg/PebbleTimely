@@ -38,6 +38,11 @@
         "type": "png",
         "name": "IMAGE_CHARGING_ICON",
         "file": "images/charging_20_20.png"
+      },
+      {
+        "type": "png",
+        "name": "IMAGE_HOURVIBE_ICON",
+        "file": "images/hourvibe_20_20.png"
       }
     ]
   }
