@@ -506,7 +506,7 @@ static void handle_battery(BatteryChargeState charge_state) {
       snprintf(battery_text, sizeof(battery_text), "%d", charge_state.charge_percent);
       //vibes_short_pulse(); 
     } else { // normal wear
-      if(settings.vibe_hour) {
+      if (settings.vibe_hour) {
         layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), false);
         bitmap_layer_set_bitmap(bmp_charging_layer, image_hourvibe_icon);
       } else {
@@ -559,7 +559,7 @@ static void window_load(Window *window) {
   layer_add_child(statusbar, bitmap_layer_get_layer(bmp_charging_layer));
   image_charging_icon = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_CHARGING_ICON);
   image_hourvibe_icon = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_HOURVIBE_ICON);
-  if(settings.vibe_hour) {
+  if (settings.vibe_hour) {
     bitmap_layer_set_bitmap(bmp_charging_layer, image_hourvibe_icon);
   } else {
     layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), true);
@@ -688,7 +688,7 @@ void my_in_rcv_handler(DictionaryIterator *received, void *context) {
 // incoming message received
     // style_inv == inverted
     Tuple *style_inv = dict_find(received, AK_STYLE_INV); // TODO: bundle in single uint8_t?
-    if(style_inv != NULL) {
+    if (style_inv != NULL) {
       settings.inverted = style_inv->value->uint8;
 //      if (strcmp(style_inv->value->cstring, "0")==0) { //}
       if (style_inv->value->uint8==0) {
@@ -700,19 +700,19 @@ void my_in_rcv_handler(DictionaryIterator *received, void *context) {
 
     // style_day_inv == day_invert // TODO
     Tuple *style_day_inv = dict_find(received, AK_STYLE_DAY_INV); // TODO: bundle in single uint8_t?
-    if(style_day_inv != NULL) {
+    if (style_day_inv != NULL) {
       settings.day_invert = style_day_inv->value->uint8;
     }
 
     // style_grid == grid // TODO: bundle in single uint8_t?
     Tuple *style_grid = dict_find(received, AK_STYLE_GRID);
-    if(style_grid != NULL) {
+    if (style_grid != NULL) {
       settings.grid = style_grid->value->uint8;
     }
 
     // int_vibe_hour == vibe_hour // TODO: bundle in single uint8_t?
     Tuple *vibe_hour = dict_find(received, AK_VIBE_HOUR);
-    if(vibe_hour != NULL) {
+    if (vibe_hour != NULL) {
       settings.vibe_hour = vibe_hour->value->uint8;
       if (settings.vibe_hour && !battery_plugged) {
         layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), false);
@@ -724,7 +724,7 @@ void my_in_rcv_handler(DictionaryIterator *received, void *context) {
 
     // INTL_DOWO == dayOfWeekOffset
     Tuple *INTL_DOWO = dict_find(received, AK_INTL_DOWO);
-    if(INTL_DOWO != NULL) {
+    if (INTL_DOWO != NULL) {
       settings.dayOfWeekOffset = INTL_DOWO->value->uint8;
     }
 
