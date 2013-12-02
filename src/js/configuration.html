@@ -56,17 +56,22 @@
         <label for="key2-0">No</label>
 </fieldset>
 
-<div data-role="fieldcontain">
-<label for="key4">Calendar: Start of Week</label>
-    <select name="key4" id="key4">
-      <option value="0">Sunday</option>
-      <option value="1">Monday</option>
-      <option value="2">Tuesday</option>
-      <option value="3">Wednesday</option>
-      <option value="4">Thursday</option>
-      <option value="5">Friday</option>
-      <option value="6">Saturday</option>
-    </select>
+<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true">
+    <legend>Calendar: Start of Week</legend>
+        <input name="key4" id="key4-0" value="0" checked="checked" type="radio">
+        <label for="key4-0">S</label>
+        <input name="key4" id="key4-1" value="1" type="radio">
+        <label for="key4-1">M</label>
+        <input name="key4" id="key4-2" value="2" type="radio">
+        <label for="key4-2">T</label>
+        <input name="key4" id="key4-3" value="3" type="radio">
+        <label for="key4-3">W</label>
+        <input name="key4" id="key4-4" value="4" type="radio">
+        <label for="key4-4">T</label>
+        <input name="key4" id="key4-5" value="5" type="radio">
+        <label for="key4-5">F</label>
+        <input name="key4" id="key4-6" value="6" type="radio">
+        <label for="key4-6">S</label>
 </fieldset>
 
     </div>
@@ -87,7 +92,7 @@
           'style_day_inv': Number( $("input[name=key1]:checked").val() ),
           'style_grid':    Number( $("input[name=key2]:checked").val() ),
           'vibe_hour':     Number( $("input[name=key3]:checked").val() ),
-          'intl_dowo':     Number( $("#key4").val() ),
+          'intl_dowo':     Number( $("input[name=key4]:checked").val() ),
         }
         return options;
       }
@@ -105,8 +110,8 @@
           $("input[name=key2]").checkboxradio('refresh');
           $("input[name=key3][id=key3-"+ls_pto["vibe_hour"]+"]").prop('checked',true);
           $("input[name=key3]").checkboxradio('refresh');
-          $("#key4").val(ls_pto["intl_dowo"]).attr('selected', true).siblings('option').removeAttr('selected');
-          $("#key4").selectmenu("refresh", true);
+          $("input[name=key4][id=key4-"+ls_pto["intl_dowo"]+"]").prop('checked',true);
+          $("input[name=key4]").checkboxradio('refresh');
         }
        }
         $("#b-cancel").click(function() {
