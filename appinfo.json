@@ -14,7 +14,12 @@
     "style_day_inv": 1,
     "style_grid":    2,
     "vibe_hour":     3,
-    "intl_dowo":     4
+    "intl_dowo":     4,
+    "intl_fmt_date": 5,
+    "style_am_pm":   6,
+    "text_status":   7,
+    "text_month":    8,
+    "text_weekday":  9
   },
   "resources": {
     "media": [
