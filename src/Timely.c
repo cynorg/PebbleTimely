@@ -63,6 +63,8 @@ static bool bluetooth_connected = false;
 #define AK_STYLE_WEEK    8
 #define AK_INTL_FMT_WEEK 9
 #define AK_VERSION       10 // UNUSED
+#define AK_VIBE_PAT_DISCONNECT   11
+#define AK_VIBE_PAT_CONNECT      12
 
 #define AK_TRANS_ABBR_SUNDAY    500
 #define AK_TRANS_ABBR_MONDAY    501
@@ -141,6 +143,8 @@ typedef struct persist {
   uint8_t show_day;               // Show day name below time
   uint8_t show_week;              // Show week number below time
   uint8_t week_format;            // week format (calculation, e.g. ISO 8601)
+  uint8_t vibe_pat_disconnect;    // vibration pattern for disconnect
+  uint8_t vibe_pat_connect;       // vibration pattern for connect
   uint8_t slot_one;               // item in slot 1 [T]
   uint8_t slot_two;               // item in slot 2 [B]
   uint8_t slot_three;             // item in slot 3 [T, doubletap]
@@ -162,7 +166,7 @@ typedef struct persist_general_lang { // 32 bytes
 } __attribute__((__packed__)) persist_general_lang;
 
 persist settings = {
-  .version    = 1,
+  .version    = 2,
   .inverted   = 0, // no, dark
   .day_invert = 1, // yes
   .grid       = 1, // yes
@@ -173,6 +177,8 @@ persist settings = {
   .show_day    = 0, // no day name
   .show_week  =  0, // no week number
   .week_format = 0, // ISO 8601
+  .vibe_pat_disconnect = 2, // double vibe
+  .vibe_pat_connect = 0, // no vibe
   .slot_one   = 0, // clock_1
   .slot_two   = 1, // calendar
   .slot_three = 2, // TODO: weather
@@ -590,12 +596,51 @@ static void handle_battery(BatteryChargeState charge_state) {
   layer_mark_dirty(battery_layer);
 }
 
+void generate_vibe(uint32_t vibe_pattern_number) {
+  switch ( vibe_pattern_number ) {
+  case 0: // No Vibration
+    return;
+  case 1: // Single short
+    vibes_short_pulse();
+    break;
+  case 2: // Double short
+    vibes_double_pulse();
+    break;
+  case 3: // Triple
+    vibes_enqueue_custom_pattern( (VibePattern) {
+      .durations = (uint32_t []) {200, 100, 200, 100, 200},
+      .num_segments = 5
+    } );
+  case 4: // Long
+    vibes_long_pulse();
+    break;
+  case 5: // Subtle
+    vibes_enqueue_custom_pattern( (VibePattern) {
+      .durations = (uint32_t []) {50, 200, 50, 200, 50, 200, 50},
+      .num_segments = 7
+    } );
+  case 6: // Less Subtle
+    vibes_enqueue_custom_pattern( (VibePattern) {
+      .durations = (uint32_t []) {100, 200, 100, 200, 100, 200, 100},
+      .num_segments = 7
+    } );
+  case 7: // Not Subtle
+    vibes_enqueue_custom_pattern( (VibePattern) {
+      .durations = (uint32_t []) {500, 250, 500, 250, 500, 250, 500},
+      .num_segments = 7
+    } );
+  default: // No Vibration
+    return;
+  }
+}
+
 void update_connection() {
   text_layer_set_text(text_connection_layer, bluetooth_connected ? lang_gen.statuses[0] : lang_gen.statuses[1]) ;
   if (bluetooth_connected) {
+    generate_vibe(settings.vibe_pat_connect);  // non-op, by default
     bitmap_layer_set_bitmap(bmp_connection_layer, image_connection_icon);
   } else {
-    vibes_double_pulse();  // because, this is bad...
+    generate_vibe(settings.vibe_pat_disconnect);  // because, this is bad...
     bitmap_layer_set_bitmap(bmp_connection_layer, image_noconnection_icon);
   }
 }
@@ -781,6 +826,7 @@ void handle_minute_tick(struct tm *tick_time, TimeUnits units_changed)
     update_ampm_text();
     if (settings.vibe_hour) {
       vibes_short_pulse();
+      //generate_vibe(X);
     }
   }
 
@@ -894,6 +940,16 @@ void my_in_rcv_handler(DictionaryIterator *received, void *context) {
 
     // potentially adjust the clock position, if we've added/removed the week, day, or AM/PM
     position_time_layer();
+
+    // AK_VIBE_PAT_DISCONNECT / AK_VIBE_PAT_CONNECT == patterns for connect and disconnect
+    Tuple *VIBE_PAT_D = dict_find(received, AK_VIBE_PAT_DISCONNECT);
+    if (VIBE_PAT_D != NULL) {
+      settings.vibe_pat_disconnect = VIBE_PAT_D->value->uint8;
+    }
+    Tuple *VIBE_PAT_C = dict_find(received, AK_VIBE_PAT_CONNECT);
+    if (VIBE_PAT_C != NULL) {
+      settings.vibe_pat_connect = VIBE_PAT_C->value->uint8;
+    }
 
     // begin translations...
     Tuple *translation;

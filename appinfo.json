@@ -4,7 +4,7 @@
   "longName": "Timely 2.0",
   "companyName": "Martin Norland (@cynorg)",
   "versionCode": 2,
-  "versionLabel": "2.0.1",
+  "versionLabel": "2.0.2",
   "watchapp": {
     "watchface": true
   },
@@ -21,6 +21,8 @@
     "style_week":    8,
     "intl_fmt_week": 9,
     "TODO___version":       10,
+    "vibe_pat_disconnect":  11,
+    "vibe_pat_connect":     12,
     "trans_abbr_sunday":   500,
     "trans_abbr_monday":   501,
     "trans_abbr_tuesday":  502,
