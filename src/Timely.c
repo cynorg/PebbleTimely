@@ -1,8 +1,8 @@
 #include <pebble.h>
 //#include <math.h>
-
+#define DEBUGLOG 1
 /*
- * If you fork this code and release the resulting app, please be considerate and change all the values in appinfo.json 
+ * If you fork this code and release the resulting app, please be considerate and change all the appropriate values in appinfo.json 
  *
  * DESCRIPTION
  *  This watchface shows the current date and current time in the top 'half',
@@ -19,6 +19,9 @@ static Layer *battery_layer;
 static Layer *datetime_layer;
 static TextLayer *date_layer;
 static TextLayer *time_layer;
+static TextLayer *week_layer;
+static TextLayer *ampm_layer;
+static TextLayer *day_layer;
 static Layer *calendar_layer;
 static Layer *statusbar;
 static Layer *slot_top;
@@ -30,7 +33,7 @@ static GBitmap *image_noconnection_icon;
 static BitmapLayer *bmp_charging_layer;
 static GBitmap *image_charging_icon;
 static GBitmap *image_hourvibe_icon;
-static TextLayer *text_connection_layer; // TODO: temporary?
+static TextLayer *text_connection_layer;
 static TextLayer *text_battery_layer;
 
 static InverterLayer *inverter_layer;
@@ -40,18 +43,58 @@ static InverterLayer *battery_meter_layer;
 static uint8_t battery_meter = 4; // length of fill inside battery meter
 static bool battery_charging = false;
 static bool battery_plugged = false;
+// connected info
+static bool bluetooth_connected = false;
 
 // define the persistent storage key(s)
-#define PK_SETTINGS      0x0
+#define PK_SETTINGS      0
+#define PK_LANG_GEN      1
+#define PK_LANG_DATETIME 2
 
 // define the appkeys used for appMessages
-#define AK_STYLE_INV     0x0
-#define AK_STYLE_DAY_INV 0x1
-#define AK_STYLE_GRID    0x2
-#define AK_VIBE_HOUR     0x3
-#define AK_INTL_DOWO     0x4
-#define AK_INTL_FMT_DATE 0x5
-#define AK_STYLE_AM_PM   0x6
+#define AK_STYLE_INV     0
+#define AK_STYLE_DAY_INV 1
+#define AK_STYLE_GRID    2
+#define AK_VIBE_HOUR     3
+#define AK_INTL_DOWO     4
+#define AK_INTL_FMT_DATE 5 // INCOMPLETE
+#define AK_STYLE_AM_PM   6
+#define AK_STYLE_DAY     7
+#define AK_STYLE_WEEK    8
+#define AK_INTL_FMT_WEEK 9
+#define AK_VERSION       10 // UNUSED
+
+#define AK_TRANS_ABBR_SUNDAY    500
+#define AK_TRANS_ABBR_MONDAY    501
+#define AK_TRANS_ABBR_TUESDAY   502
+#define AK_TRANS_ABBR_WEDSDAY   503
+#define AK_TRANS_ABBR_THURSDAY  504
+#define AK_TRANS_ABBR_FRIDAY    505
+#define AK_TRANS_ABBR_SATURDAY  506
+#define AK_TRANS_JANUARY    507
+#define AK_TRANS_FEBRUARY   508
+#define AK_TRANS_MARCH      509
+#define AK_TRANS_APRIL      510
+#define AK_TRANS_MAY        511
+#define AK_TRANS_JUNE       512
+#define AK_TRANS_JULY       513
+#define AK_TRANS_AUGUST     514
+#define AK_TRANS_SEPTEMBER  515
+#define AK_TRANS_OCTOBER    516
+#define AK_TRANS_NOVEMBER   517
+#define AK_TRANS_DECEMBER   518
+#define AK_TRANS_ALARM      519 // UNUSED
+#define AK_TRANS_SUNDAY     520
+#define AK_TRANS_MONDAY     521
+#define AK_TRANS_TUESDAY    522
+#define AK_TRANS_WEDSDAY    523
+#define AK_TRANS_THURSDAY   524
+#define AK_TRANS_FRIDAY     525
+#define AK_TRANS_SATURDAY   526
+#define AK_TRANS_CONNECTED     527
+#define AK_TRANS_DISCONNECTED  528
+#define AK_TRANS_TIME_AM    529
+#define AK_TRANS_TIME_PM    530
 
 // primary coordinates
 #define DEVICE_WIDTH        144
@@ -73,11 +116,12 @@ static bool battery_plugged = false;
 
 // relative coordinates (relative to SLOTs)
 #define REL_CLOCK_DATE_LEFT       0
-#define REL_CLOCK_DATE_TOP       -6
+#define REL_CLOCK_DATE_TOP       -9
 #define REL_CLOCK_DATE_HEIGHT    30 // date/time overlap, due to the way text is 'positioned'
 #define REL_CLOCK_TIME_LEFT       0
-#define REL_CLOCK_TIME_TOP       12
+#define REL_CLOCK_TIME_TOP        7
 #define REL_CLOCK_TIME_HEIGHT    60 // date/time overlap, due to the way text is 'positioned'
+#define REL_CLOCK_SUBTEXT_TOP    56 // time/ampm overlap, due to the way text is 'positioned'
 
 #define SLOT_ID_CLOCK_1  0
 #define SLOT_ID_CALENDAR 1
@@ -86,13 +130,17 @@ static bool battery_plugged = false;
 
 // Create a struct to hold our persistent settings...
 typedef struct persist {
+  uint8_t version;                // version key
   uint8_t inverted;               // Invert display
   uint8_t day_invert;             // Invert colors on today's date
   uint8_t grid;                   // Show the grid
   uint8_t vibe_hour;              // vibrate at the top of the hour?
   uint8_t dayOfWeekOffset;        // first day of our week
   uint8_t date_format;            // date format
-  uint8_t show_am_pm;             // Show AM/PM next to time
+  uint8_t show_am_pm;             // Show AM/PM below time
+  uint8_t show_day;               // Show day name below time
+  uint8_t show_week;              // Show week number below time
+  uint8_t week_format;            // week format (calculation, e.g. ISO 8601)
   uint8_t slot_one;               // item in slot 1 [T]
   uint8_t slot_two;               // item in slot 2 [B]
   uint8_t slot_three;             // item in slot 3 [T, doubletap]
@@ -101,14 +149,30 @@ typedef struct persist {
   uint8_t slot_six;               // item in slot 6 [B, tripletap]
 } __attribute__((__packed__)) persist;
 
+typedef struct persist_datetime_lang { // 249 bytes
+  char abbrDaysOfWeek[7][3];      //  21:  2 characters for each of  7 weekdays
+  char monthsNames[12][12];       // 144: 11 characters for each of 12 months
+  char DaysOfWeek[7][12];         //  84: 11 characters for each of  7 weekdays
+//                                   249 bytes
+} __attribute__((__packed__)) persist_datetime_lang;
+
+typedef struct persist_general_lang { // 32 bytes
+  char statuses[2][10];           //  20:  9 characters for each of  2 statuses
+  char abbrTime[2][6];            //  12:  5 characters for each of  2 abbreviations
+} __attribute__((__packed__)) persist_general_lang;
+
 persist settings = {
+  .version    = 1,
   .inverted   = 0, // no, dark
   .day_invert = 1, // yes
   .grid       = 1, // yes
   .vibe_hour  = 0, // no
   .dayOfWeekOffset = 0, // 0 - 6, Sun - Sat
   .date_format = 0, // Month DD, YYYY
-  .show_am_pm = 0, // no AM/PM by default
+  .show_am_pm  = 0, // no AM/PM
+  .show_day    = 0, // no day name
+  .show_week  =  0, // no week number
+  .week_format = 0, // ISO 8601
   .slot_one   = 0, // clock_1
   .slot_two   = 1, // calendar
   .slot_three = 2, // TODO: weather
@@ -118,8 +182,16 @@ persist settings = {
   .slot_six   = 0, // TODO: weather  (test)
 };
 
-// TODO - make persistent/configurable for localization 
-const char daysOfWeek[7][3] = {"Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"};
+persist_datetime_lang lang_datetime = {
+  .abbrDaysOfWeek = { "Su", "Mo", "Tu", "We", "Th", "Fr", "Sa" },
+  .monthsNames = { "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" },
+  .DaysOfWeek = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" },
+};
+
+persist_general_lang lang_gen = {
+  .statuses = { "Linked", "NOLINK" },
+  .abbrTime = { "AM", "PM" },
+};
 
 // How many days are/were in the month
 int daysInMonth(int mon, int year)
@@ -281,7 +353,7 @@ void calendar_layer_update_callback(Layer *me, GContext* ctx) {
       graphics_fill_rect(ctx, GRect (CAL_WIDTH * col + CAL_LEFT + CAL_GAP, 0, CAL_WIDTH - CAL_GAP, CAL_HEIGHT - CAL_GAP), 0, GCornerNone);
 
       // draw the cell text
-      graphics_draw_text(ctx, daysOfWeek[weekday], current, GRect(CAL_WIDTH * col + CAL_LEFT + CAL_GAP, CAL_GAP + font_vert_offset, CAL_WIDTH, CAL_HEIGHT), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL); 
+      graphics_draw_text(ctx, lang_datetime.abbrDaysOfWeek[weekday], current, GRect(CAL_WIDTH * col + CAL_LEFT + CAL_GAP, CAL_GAP + font_vert_offset, CAL_WIDTH, CAL_HEIGHT), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL); 
       if (col == specialDay) {
         current = normal;
         font_vert_offset = 0;
@@ -325,12 +397,33 @@ void update_date_text()
     // TODO - 18 @ this font is approaching the max width, localization may require smaller fonts, or no year...
     //September 11, 2013 => 18 chars
     //123456789012345678
-    static char date_text[20];
-    // http://www.cplusplus.com/reference/ctime/strftime/
-    strftime(date_text, sizeof(date_text), "%B %d, %Y", currentTime); // Month DD, YYYY
-    //strftime(date_text, sizeof(date_text), "%d.%m.%Y", currentTime);  // DD.MM.YYYY
 
-    text_layer_set_text(date_layer, date_text);
+    static char date_text[20];
+    static char date_string[30];
+
+    // http://www.cplusplus.com/reference/ctime/strftime/
+    //strftime(date_text, sizeof(date_text), "%B %d, %Y", currentTime); // Month DD, YYYY {not localized}
+
+    if (settings.date_format == 0) {
+      // Month DD, YYYY (localized)
+      strftime(date_text, sizeof(date_text), "%d, %Y", currentTime); // DD, YYYY
+      snprintf(date_string, sizeof(date_string), "%s %s", lang_datetime.monthsNames[currentTime->tm_mon], date_text); // prefix Month (localized)
+    } else if (settings.date_format == 1) {
+      // DD.MM.YYYY
+      strftime(date_text, sizeof(date_text), "%d.%m.%Y", currentTime);  // DD.MM.YYYY
+      snprintf(date_string, sizeof(date_string), "%s", date_text); // straight copy
+    }
+    // dd/mm/yyyy
+    // yyyy.mm.dd
+    // yyyy mm dd
+    // yyyy/mm/dd
+    // YYYY MM DD
+    // YYYY-MM-DD
+    // D MMMM YYYY
+    // yyyy-mm-dd
+    // d.m.yyyy
+
+    text_layer_set_text(date_layer, date_string);
 }
 
 void update_time_text() {
@@ -361,12 +454,57 @@ void update_time_text() {
 
 }
 
+void update_day_text() {
+  struct tm *currentTime = get_time();
+  text_layer_set_text(day_layer, lang_datetime.DaysOfWeek[currentTime->tm_wday]);
+}
+
+void update_week_text() {
+  struct tm *currentTime = get_time();
+  static char week_text[] = "W00";
+  if (settings.week_format == 0) {
+    // ISO 8601 week number (00-53)
+    strftime(week_text, sizeof(week_text), "W%V", currentTime);
+  } else if (settings.week_format == 1) {
+    // Week number with the first Sunday as the first day of week one (00-53)
+    strftime(week_text, sizeof(week_text), "W%U", currentTime);
+  } else if (settings.week_format == 2) {
+    // Week number with the first Monday as the first day of week one (00-53)
+    strftime(week_text, sizeof(week_text), "W%W", currentTime);
+  }
+  text_layer_set_text(week_layer, week_text);
+}
+
+void update_ampm_text() {
+  struct tm *currentTime = get_time();
+
+  if (currentTime->tm_hour < 12 ) {
+    text_layer_set_text(ampm_layer, lang_gen.abbrTime[0]); //  0-11 AM
+  } else {
+    text_layer_set_text(ampm_layer, lang_gen.abbrTime[1]); // 12-23 PM
+  }
+}
+
+void position_time_layer() {
+  int time_offset = 0;
+  if (!settings.show_day && !settings.show_week) {
+    time_offset = 4;
+    if (!settings.show_am_pm) {
+      time_offset = 8;
+    }
+  }
+  layer_set_frame( text_layer_get_layer(time_layer), GRect(REL_CLOCK_TIME_LEFT, REL_CLOCK_TIME_TOP + time_offset, DEVICE_WIDTH, REL_CLOCK_TIME_HEIGHT) );
+}
+
 void datetime_layer_update_callback(Layer *me, GContext* ctx) {
     (void)me;
 
     setColors(ctx);
     update_date_text();
     update_time_text();
+    update_week_text();
+    update_day_text();
+    update_ampm_text();
 }
 
 void statusbar_layer_update_callback(Layer *me, GContext* ctx) {
@@ -452,14 +590,19 @@ static void handle_battery(BatteryChargeState charge_state) {
   layer_mark_dirty(battery_layer);
 }
 
-static void handle_bluetooth(bool connected) {
-  text_layer_set_text(text_connection_layer, connected ? "Linked" : "NO LINK");
-  if (connected) {
+void update_connection() {
+  text_layer_set_text(text_connection_layer, bluetooth_connected ? lang_gen.statuses[0] : lang_gen.statuses[1]) ;
+  if (bluetooth_connected) {
     bitmap_layer_set_bitmap(bmp_connection_layer, image_connection_icon);
   } else {
     vibes_double_pulse();  // because, this is bad...
     bitmap_layer_set_bitmap(bmp_connection_layer, image_noconnection_icon);
   }
+}
+
+static void handle_bluetooth(bool connected) {
+  bluetooth_connected = connected;
+  update_connection();
 }
 
 static void window_load(Window *window) {
@@ -517,15 +660,48 @@ static void window_load(Window *window) {
   text_layer_set_text_alignment(date_layer, GTextAlignmentCenter);
   layer_add_child(datetime_layer, text_layer_get_layer(date_layer));
 
-  time_layer = text_layer_create( GRect(REL_CLOCK_TIME_LEFT, REL_CLOCK_TIME_TOP, DEVICE_WIDTH, REL_CLOCK_TIME_HEIGHT) );
+  time_layer = text_layer_create( GRect(REL_CLOCK_TIME_LEFT, REL_CLOCK_TIME_TOP, DEVICE_WIDTH, REL_CLOCK_TIME_HEIGHT) ); // see position_time_layer()
   text_layer_set_text_color(time_layer, GColorWhite);
   text_layer_set_background_color(time_layer, GColorClear);
   text_layer_set_font(time_layer, fonts_get_system_font(FONT_KEY_ROBOTO_BOLD_SUBSET_49));
   text_layer_set_text_alignment(time_layer, GTextAlignmentCenter);
+  position_time_layer(); // make use of our whitespace, if we have it...
   layer_add_child(datetime_layer, text_layer_get_layer(time_layer));
 
-  // TODO: temporary?
-  text_connection_layer = text_layer_create( GRect(20, 0, 72, 22) );
+  week_layer = text_layer_create( GRect(4, REL_CLOCK_SUBTEXT_TOP, 28, 16) );
+  text_layer_set_text_color(week_layer, GColorWhite);
+  text_layer_set_background_color(week_layer, GColorClear);
+  text_layer_set_font(week_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
+  text_layer_set_text_alignment(week_layer, GTextAlignmentLeft);
+  layer_add_child(datetime_layer, text_layer_get_layer(week_layer));
+  update_week_text();
+  if ( !settings.show_week ) {
+    layer_set_hidden(text_layer_get_layer(week_layer), true);
+  }
+
+  day_layer = text_layer_create( GRect(28, REL_CLOCK_SUBTEXT_TOP, DEVICE_WIDTH - 56, 16) );
+  text_layer_set_text_color(day_layer, GColorWhite);
+  text_layer_set_background_color(day_layer, GColorClear);
+  text_layer_set_font(day_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
+  text_layer_set_text_alignment(day_layer, GTextAlignmentCenter);
+  layer_add_child(datetime_layer, text_layer_get_layer(day_layer));
+  update_day_text();
+  if ( !settings.show_day ) {
+    layer_set_hidden(text_layer_get_layer(day_layer), true);
+  }
+
+  ampm_layer = text_layer_create( GRect(DEVICE_WIDTH - 28, REL_CLOCK_SUBTEXT_TOP, 24, 16) );
+  text_layer_set_text_color(ampm_layer, GColorWhite);
+  text_layer_set_background_color(ampm_layer, GColorClear);
+  text_layer_set_font(ampm_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
+  text_layer_set_text_alignment(ampm_layer, GTextAlignmentRight);
+  layer_add_child(datetime_layer, text_layer_get_layer(ampm_layer));
+  update_ampm_text();
+  if ( !settings.show_am_pm ) {
+    layer_set_hidden(text_layer_get_layer(ampm_layer), true);
+  }
+
+  text_connection_layer = text_layer_create( GRect(20+STAT_BT_ICON_LEFT, 0, 72, 22) );
   text_layer_set_text_color(text_connection_layer, GColorWhite);
   text_layer_set_background_color(text_connection_layer, GColorClear);
   text_layer_set_font(text_connection_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18));
@@ -563,7 +739,10 @@ static void window_unload(Window *window) {
   layer_destroy(inverter_layer_get_layer(inverter_layer));
   layer_destroy(inverter_layer_get_layer(battery_meter_layer));
   layer_destroy(text_layer_get_layer(text_battery_layer));
-  layer_destroy(text_layer_get_layer(text_connection_layer)); // TODO: temporary?
+  layer_destroy(text_layer_get_layer(text_connection_layer));
+  layer_destroy(text_layer_get_layer(ampm_layer));
+  layer_destroy(text_layer_get_layer(day_layer));
+  layer_destroy(text_layer_get_layer(week_layer));
   layer_destroy(text_layer_get_layer(time_layer));
   layer_destroy(text_layer_get_layer(date_layer));
   layer_destroy(calendar_layer);
@@ -598,16 +777,21 @@ void handle_minute_tick(struct tm *tick_time, TimeUnits units_changed)
     update_date_text();
   }
 
-  if ((units_changed & HOUR_UNIT) && settings.vibe_hour) {
-    vibes_short_pulse();
+  if (units_changed & HOUR_UNIT) {
+    update_ampm_text();
+    if (settings.vibe_hour) {
+      vibes_short_pulse();
+    }
   }
 
   if (units_changed & DAY_UNIT) {
+    update_week_text();
+    update_day_text();
     layer_mark_dirty(datetime_layer);
     layer_mark_dirty(calendar_layer);
   }
 
-  // TODO Confirm: calendar gets redrawn every time because time_layer is changed and all layers are redrawn together.
+  // calendar gets redrawn every time because time_layer is changed and all layers are redrawn together.
 }
 
 void my_out_sent_handler(DictionaryIterator *sent, void *context) {
@@ -620,7 +804,7 @@ void my_out_fail_handler(DictionaryIterator *failed, AppMessageResult reason, vo
 void my_in_rcv_handler(DictionaryIterator *received, void *context) {
 // incoming message received
     // style_inv == inverted
-    Tuple *style_inv = dict_find(received, AK_STYLE_INV); // TODO: bundle in single uint8_t?
+    Tuple *style_inv = dict_find(received, AK_STYLE_INV);
     if (style_inv != NULL) {
       settings.inverted = style_inv->value->uint8;
 //      if (strcmp(style_inv->value->cstring, "0")==0) { //}
@@ -631,19 +815,19 @@ void my_in_rcv_handler(DictionaryIterator *received, void *context) {
       }
     }
 
-    // style_day_inv == day_invert // TODO
-    Tuple *style_day_inv = dict_find(received, AK_STYLE_DAY_INV); // TODO: bundle in single uint8_t?
+    // style_day_inv == day_invert
+    Tuple *style_day_inv = dict_find(received, AK_STYLE_DAY_INV);
     if (style_day_inv != NULL) {
       settings.day_invert = style_day_inv->value->uint8;
     }
 
-    // style_grid == grid // TODO: bundle in single uint8_t?
+    // style_grid == grid
     Tuple *style_grid = dict_find(received, AK_STYLE_GRID);
     if (style_grid != NULL) {
       settings.grid = style_grid->value->uint8;
     }
 
-    // int_vibe_hour == vibe_hour // TODO: bundle in single uint8_t?
+    // int_vibe_hour == vibe_hour
     Tuple *vibe_hour = dict_find(received, AK_VIBE_HOUR);
     if (vibe_hour != NULL) {
       settings.vibe_hour = vibe_hour->value->uint8;
@@ -661,14 +845,114 @@ void my_in_rcv_handler(DictionaryIterator *received, void *context) {
       settings.dayOfWeekOffset = INTL_DOWO->value->uint8;
     }
 
-    // INTL_DOW == daysOfWeek // TODO: localized Su Mo Tu We Th Fr Sa
+    // AK_INTL_FMT_DATE == date format (strftime + manual localization)
+    Tuple *FMT_DATE = dict_find(received, AK_INTL_FMT_DATE);
+    if (FMT_DATE != NULL) {
+      settings.date_format = FMT_DATE->value->uint8;
+      update_date_text();
+    }
 
-    // INTL_MOY == monthsOfYear // TODO: localized month names, max ~9 characters ('September' == practical display limit)
-    // INTL_format_date == // TODO
+    // AK_STYLE_WEEK
+    Tuple *style_week = dict_find(received, AK_STYLE_WEEK);
+    if (style_week != NULL) {
+      settings.show_week = style_week->value->uint8;
+      if ( settings.show_week ) {
+        layer_set_hidden(text_layer_get_layer(week_layer), false);
+      }  else {
+        layer_set_hidden(text_layer_get_layer(week_layer), true);
+      }
+    }
 
-    // INTL_format_time == // TODO
+    // AK_INTL_FMT_WEEK == week format (strftime)
+    Tuple *FMT_WEEK = dict_find(received, AK_INTL_FMT_WEEK);
+    if (FMT_WEEK != NULL) {
+      settings.week_format = FMT_WEEK->value->uint8;
+      update_week_text();
+    }
 
-    persist_write_data(PK_SETTINGS, &settings, sizeof(settings) );
+    // AK_STYLE_DAY
+    Tuple *style_day = dict_find(received, AK_STYLE_DAY);
+    if (style_day != NULL) {
+      settings.show_day = style_day->value->uint8;
+      if ( settings.show_day ) {
+        layer_set_hidden(text_layer_get_layer(day_layer), false);
+      }  else {
+        layer_set_hidden(text_layer_get_layer(day_layer), true);
+      }
+    }
+
+    // AK_STYLE_AM_PM
+    Tuple *style_am_pm = dict_find(received, AK_STYLE_AM_PM);
+    if (style_am_pm != NULL) {
+      settings.show_am_pm = style_am_pm->value->uint8;
+      if ( settings.show_am_pm ) {
+        layer_set_hidden(text_layer_get_layer(ampm_layer), false);
+      }  else {
+        layer_set_hidden(text_layer_get_layer(ampm_layer), true);
+      }
+    }
+
+    // potentially adjust the clock position, if we've added/removed the week, day, or AM/PM
+    position_time_layer();
+
+    // begin translations...
+    Tuple *translation;
+
+    // AK_TRANS_ABBR_*DAY == abbrDaysOfWeek // localized Su Mo Tu We Th Fr Sa
+    for (int i = AK_TRANS_ABBR_SUNDAY; i <= AK_TRANS_ABBR_SATURDAY; i++ ) {
+      translation = dict_find(received, i);
+      if (translation != NULL) {
+        if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "translation for key %d is %s", i, translation->value->cstring); }
+        strncpy(lang_datetime.abbrDaysOfWeek[i - AK_TRANS_ABBR_SUNDAY], translation->value->cstring, sizeof(lang_datetime.abbrDaysOfWeek[i - AK_TRANS_ABBR_SUNDAY])-1);
+      }
+    }
+
+    // AK_TRANS_*DAY == daysOfWeek // localized Sunday through Saturday, max ~11 characters
+    for (int i = AK_TRANS_SUNDAY; i <= AK_TRANS_SATURDAY; i++ ) {
+      translation = dict_find(received, i);
+      if (translation != NULL) {
+        if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "translation for key %d is %s", i, translation->value->cstring); }
+        strncpy(lang_datetime.DaysOfWeek[i - AK_TRANS_SUNDAY], translation->value->cstring, sizeof(lang_datetime.DaysOfWeek[i - AK_TRANS_SUNDAY])-1);
+      }
+    }
+
+    // AK_TEXT_MONTH == monthsOfYear // localized month names, max ~9 characters ('September' == practical display limit)
+    for (int i = AK_TRANS_JANUARY; i <= AK_TRANS_DECEMBER; i++ ) {
+      translation = dict_find(received, i);
+      if (translation != NULL) {
+        if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "translation for key %d is %s", i, translation->value->cstring); }
+        strncpy(lang_datetime.monthsNames[i - AK_TRANS_JANUARY], translation->value->cstring, sizeof(lang_datetime.monthsNames[i - AK_TRANS_JANUARY])-1);
+      }
+    }
+
+    // AK_TRANS_CONNECTED / AK_TRANS_DISCONNECTED == status text, e.g. "Linked" "NOLINK"
+    for (int i = AK_TRANS_CONNECTED; i <= AK_TRANS_DISCONNECTED; i++ ) {
+      translation = dict_find(received, i);
+      if (translation != NULL) {
+        if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "translation for key %d is %s", i, translation->value->cstring); }
+        strncpy(lang_gen.statuses[i - AK_TRANS_CONNECTED], translation->value->cstring, sizeof(lang_gen.statuses[i - AK_TRANS_CONNECTED])-1);
+      }
+    }
+    update_connection();
+
+    // AK_TRANS_TIME_AM / AK_TRANS_TIME_PM == AM / PM text, e.g. "AM" "PM" :)
+    for (int i = AK_TRANS_TIME_AM; i <= AK_TRANS_TIME_PM; i++ ) {
+      translation = dict_find(received, i);
+      if (translation != NULL) {
+        if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "translation for key %d is %s", i, translation->value->cstring); }
+        strncpy(lang_gen.abbrTime[i - AK_TRANS_TIME_AM], translation->value->cstring, sizeof(lang_gen.abbrTime[i - AK_TRANS_TIME_AM])-1);
+      }
+    }
+    
+    // end translations...
+
+    int result = 0;
+    result = persist_write_data(PK_SETTINGS, &settings, sizeof(settings) );
+    if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Wrote %d bytes into settings", result); }
+    result = persist_write_data(PK_LANG_GEN, &lang_gen, sizeof(lang_gen) );
+    if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Wrote %d bytes into lang_gen", result); }
+    result = persist_write_data(PK_LANG_DATETIME, &lang_datetime, sizeof(lang_datetime) );
+    if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Wrote %d bytes into lang_datetime", result); }
 
     // ==== Implemented SDK ====
     // Battery
@@ -702,7 +986,7 @@ static void app_message_init(void) {
   app_message_register_outbox_sent(my_out_sent_handler);
   app_message_register_outbox_failed(my_out_fail_handler);
   // Init buffers
-  app_message_open(APP_MESSAGE_INBOX_SIZE_MINIMUM, APP_MESSAGE_OUTBOX_SIZE_MINIMUM);
+  app_message_open(app_message_inbox_size_maximum(), app_message_outbox_size_maximum());
 }
 
 static void init(void) {
@@ -711,6 +995,12 @@ static void init(void) {
 
   if (persist_exists(PK_SETTINGS)) {
     persist_read_data(PK_SETTINGS, &settings, sizeof(settings) );
+  }
+  if (persist_exists(PK_LANG_GEN)) {
+    persist_read_data(PK_LANG_GEN, &lang_gen, sizeof(lang_gen) );
+  }
+  if (persist_exists(PK_LANG_DATETIME)) {
+    persist_read_data(PK_LANG_DATETIME, &lang_datetime, sizeof(lang_datetime) );
   }
 
   window = window_create();

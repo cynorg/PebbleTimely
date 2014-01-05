@@ -3,17 +3,15 @@ Pebble.addEventListener("ready", function(e) {
 });
 
 Pebble.addEventListener("showConfiguration", function(e) {
-    console.log("Configuration window launching...");
-    Pebble.openURL("http://www.cyn.org/pebble/timely/2.0.0.html");
+//  console.log("Configuration window launching...");
+  Pebble.openURL("http://www.cyn.org/pebble/timely/2.0.1.html" + '?_=' + new Date().getTime() );
 });
 
 Pebble.addEventListener("webviewclosed", function(e) {
 //  console.log("Configuration closed");
   var options = JSON.parse(decodeURIComponent(e.response));
 //  console.log("Options = " + JSON.stringify(options));
-  Pebble.sendAppMessage( options );
-/*
-  var transactionId = Pebble.sendAppMessage( JSON.stringify(options),
+  var transactionId = Pebble.sendAppMessage( options,
   function(e) {
     console.log("Successfully delivered message with transactionId="
       + e.data.transactionId);
@@ -24,5 +22,4 @@ Pebble.addEventListener("webviewclosed", function(e) {
       + " Error is: " + e.error.message);
   }
 );
-//*/
 });
