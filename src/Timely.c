@@ -825,8 +825,7 @@ void handle_minute_tick(struct tm *tick_time, TimeUnits units_changed)
   if (units_changed & HOUR_UNIT) {
     update_ampm_text();
     if (settings.vibe_hour) {
-      vibes_short_pulse();
-      //generate_vibe(X);
+      generate_vibe(settings.vibe_hour);
     }
   }
 
@@ -853,7 +852,6 @@ void my_in_rcv_handler(DictionaryIterator *received, void *context) {
     Tuple *style_inv = dict_find(received, AK_STYLE_INV);
     if (style_inv != NULL) {
       settings.inverted = style_inv->value->uint8;
-//      if (strcmp(style_inv->value->cstring, "0")==0) { //}
       if (style_inv->value->uint8==0) {
         layer_set_hidden(inverter_layer_get_layer(inverter_layer), true); // hide inversion = dark
       } else {
@@ -873,7 +871,7 @@ void my_in_rcv_handler(DictionaryIterator *received, void *context) {
       settings.grid = style_grid->value->uint8;
     }
 
-    // int_vibe_hour == vibe_hour
+    // AK_VIBE_HOUR == vibe_hour - vibration patterns for hourly vibration
     Tuple *vibe_hour = dict_find(received, AK_VIBE_HOUR);
     if (vibe_hour != NULL) {
       settings.vibe_hour = vibe_hour->value->uint8;
@@ -941,7 +939,7 @@ void my_in_rcv_handler(DictionaryIterator *received, void *context) {
     // potentially adjust the clock position, if we've added/removed the week, day, or AM/PM
     position_time_layer();
 
-    // AK_VIBE_PAT_DISCONNECT / AK_VIBE_PAT_CONNECT == patterns for connect and disconnect
+    // AK_VIBE_PAT_DISCONNECT / AK_VIBE_PAT_CONNECT == vibration patterns for connect and disconnect
     Tuple *VIBE_PAT_D = dict_find(received, AK_VIBE_PAT_DISCONNECT);
     if (VIBE_PAT_D != NULL) {
       settings.vibe_pat_disconnect = VIBE_PAT_D->value->uint8;

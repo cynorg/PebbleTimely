@@ -31,9 +31,61 @@
 <fieldset data-role="controlgroup" data-type="horizontal" data-mini="true">
     <legend>Hourly Vibration:</legend>
         <input name="key3" id="key3-0" value="0" checked="checked" type="radio">
-        <label for="key3-0">No</label>
+        <label for="key3-0">None</label>
         <input name="key3" id="key3-1" value="1" type="radio">
-        <label for="key3-1">Yes</label>
+        <label for="key3-1">1x</label>
+        <input name="key3" id="key3-2" value="2" type="radio">
+        <label for="key3-2">2x</label>
+        <input name="key3" id="key3-3" value="3" type="radio">
+        <label for="key3-3">3x</label>
+        <input name="key3" id="key3-4" value="4" type="radio">
+        <label for="key3-4">Long</label>
+        <input name="key3" id="key3-5" value="5" type="radio">
+        <label for="key3-5">Min</label>
+        <input name="key3" id="key3-6" value="6" type="radio">
+        <label for="key3-6">Min 2</label>
+        <input name="key3" id="key3-7" value="7" type="radio">
+        <label for="key3-7">Ow</label>
+</fieldset>
+
+<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true">
+    <legend>Disconnect Vibration:</legend>
+        <input name="key11" id="key11-0" value="0" type="radio">
+        <label for="key11-0">None</label>
+        <input name="key11" id="key11-1" value="1" type="radio">
+        <label for="key11-1">1x</label>
+        <input name="key11" id="key11-2" value="2" checked="checked" type="radio">
+        <label for="key11-2">2x</label>
+        <input name="key11" id="key11-3" value="3" type="radio">
+        <label for="key11-3">3x</label>
+        <input name="key11" id="key11-4" value="4" type="radio">
+        <label for="key11-4">Long</label>
+        <input name="key11" id="key11-5" value="5" type="radio">
+        <label for="key11-5">Min</label>
+        <input name="key11" id="key11-6" value="6" type="radio">
+        <label for="key11-6">Min 2</label>
+        <input name="key11" id="key11-7" value="7" type="radio">
+        <label for="key11-7">Ow</label>
+</fieldset>
+
+<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true">
+    <legend>Connect Vibration:</legend>
+        <input name="key12" id="key12-0" value="0" checked="checked" type="radio">
+        <label for="key12-0">None</label>
+        <input name="key12" id="key12-1" value="1" type="radio">
+        <label for="key12-1">1x</label>
+        <input name="key12" id="key12-2" value="2" type="radio">
+        <label for="key12-2">2x</label>
+        <input name="key12" id="key12-3" value="3" type="radio">
+        <label for="key12-3">3x</label>
+        <input name="key12" id="key12-4" value="4" type="radio">
+        <label for="key12-4">Long</label>
+        <input name="key12" id="key12-5" value="5" type="radio">
+        <label for="key12-5">Min</label>
+        <input name="key12" id="key12-6" value="6" type="radio">
+        <label for="key12-6">Min 2</label>
+        <input name="key12" id="key12-7" value="7" type="radio">
+        <label for="key12-7">Ow</label>
 </fieldset>
 
     </div>
@@ -276,6 +328,8 @@
           'style_day':     Number( $("input[name=key7]:checked").val() ),
           'style_week':    Number( $("input[name=key8]:checked").val() ),
           'intl_fmt_week': Number( $("input[name=key9]:checked").val() ),
+          'vibe_pat_disconnect': Number( $("input[name=key11]:checked").val() ),
+          'vibe_pat_connect':    Number( $("input[name=key12]:checked").val() ),
           'trans_connected':    $("input[name=key527]").val(),
           'trans_disconnected': $("input[name=key528]").val(),
           'trans_january':    $("input[name=key507]").val(),
@@ -333,6 +387,12 @@
           $("input[name=key8]").checkboxradio('refresh');
           $("input[name=key9][id=key9-"+ls_pto["intl_fmt_week"]+"]").prop('checked',true);
           $("input[name=key9]").checkboxradio('refresh');
+          if ("vibe_pat_disconnect" in ls_pto) {
+            $("input[name=key11][id=key11-"+ls_pto["vibe_pat_disconnect"]+"]").prop('checked',true);
+            $("input[name=key11]").checkboxradio('refresh');
+            $("input[name=key12][id=key12-"+ls_pto["vibe_pat_connect"]+"]").prop('checked',true);
+            $("input[name=key12]").checkboxradio('refresh');
+          }
           if ("trans_connected" in ls_pto) {
             $("input[name=key527]").val(ls_pto["trans_connected"]);
             $("input[name=key528]").val(ls_pto["trans_disconnected"]);
