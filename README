@@ -1,4 +1,4 @@
-Calendar Watchface for Pebble
+Timely Watchface for Pebble
 
 This is a Watchface for the Pebble Watch.  It shows the current date and current time in the top 'half', and then a small calendar w/ 3 weeks: last, current, and next week, in the bottom 'half'.  The statusbar at the top shows the connection status, charging, and battery level - and it will vibrate on link lost.
 
