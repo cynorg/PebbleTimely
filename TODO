@@ -1,0 +1,33 @@
+TODOS:
+
+Watchface
+ - more datetime formats []
+ - vibration option(s)
+  - respect DND period (when exposed in SDK)
+  - hourly vibrations period (e.g. 9am - 5pm?)
+  New Features
+    - display notice if there's a newer version available?
+    - horizontal bar for seconds?
+    - timezone (use JS for detection)
+    - Alarm
+    - Charge history
+      - track battery/charging events in javascript local storage, plot over time w/ history on config page
+    - Accelerometer
+      - Acceleromater detection for 'swapping slots'
+        - slot: Weather
+        - slot: 2nd Timezone clock
+        - slot: Barcode(s) (if big enough to scan?)
+        - slot: 2 factor authenticator
+        - slot: moon phases
+        - slot: geolocation (geocaching, etc.)
+        - Configuration for which slots are visible under what conditions
+      - Idle timer - reminder to stay active, configure inactivity period + vibe + sensitivity
+        - Sleep tracking?  (extension of idle tracking, requires LOTS of work)
+
+HTML configuration page
+  - Entire page generated dynamically from metadata
+  - select language @ top, localize entire page
+    - change values based on language
+  - embedded rather than hosted?  e.g. https://github.com/bertfreudenberg/PebbleONE/blob/master/wscript
+  - version clearly displayed @ top
+    - display notice if there's a newer version available?
