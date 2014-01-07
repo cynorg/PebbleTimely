@@ -601,6 +601,7 @@ static void handle_battery(BatteryChargeState charge_state) {
 
 void generate_vibe(uint32_t vibe_pattern_number) {
   if (vibe_suppression) { return; }
+  vibes_cancel();
   switch ( vibe_pattern_number ) {
   case 0: // No Vibration
     return;
