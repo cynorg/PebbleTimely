@@ -574,7 +574,6 @@ static void handle_battery(BatteryChargeState charge_state) {
   layer_set_hidden(inverter_layer_get_layer(battery_meter_layer), false);
 
   if (charge_state.is_charging) { // charging
-    snprintf(battery_text, sizeof(battery_text), "%d", charge_state.charge_percent);
     layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), false);
     bitmap_layer_set_bitmap(bmp_charging_layer, image_charging_icon);
 //    if (charge_state.is_plugged) {
@@ -583,7 +582,6 @@ static void handle_battery(BatteryChargeState charge_state) {
   } else {
     if (charge_state.is_plugged) { // plugged but not charging = charging complete...
       layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), true);
-      snprintf(battery_text, sizeof(battery_text), "%d", charge_state.charge_percent);
       //vibes_short_pulse(); 
     } else { // normal wear
       if (settings.vibe_hour) {
@@ -592,9 +590,9 @@ static void handle_battery(BatteryChargeState charge_state) {
       } else {
         layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), true);
       }
-      snprintf(battery_text, sizeof(battery_text), "%d", charge_state.charge_percent);
     }
   }
+  snprintf(battery_text, sizeof(battery_text), "%d", charge_state.charge_percent);
   text_layer_set_text(text_battery_layer, battery_text);
   layer_mark_dirty(battery_layer);
 }
