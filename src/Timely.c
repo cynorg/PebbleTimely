@@ -1,5 +1,4 @@
 #include <pebble.h>
-//#include <math.h>
 #define DEBUGLOG 1
 #define TRANSLOG 0
 /*
@@ -41,13 +40,18 @@ static InverterLayer *inverter_layer;
 static InverterLayer *battery_meter_layer;
 
 // battery info, instantiate to 'worst scenario' to prevent false hopes
-static uint8_t battery_meter = 4; // length of fill inside battery meter
+static uint8_t battery_percent = 10;
 static bool battery_charging = false;
 static bool battery_plugged = false;
+static uint8_t sent_battery_percent = 10;
+static bool sent_battery_charging = false;
+static bool sent_battery_plugged = false;
+AppTimer *battery_sending = NULL;
 // connected info
 static bool bluetooth_connected = false;
 // suppress vibration
 static bool vibe_suppression = true;
+static int8_t timezone_offset = 0;
 
 // define the persistent storage key(s)
 #define PK_SETTINGS      0
@@ -68,6 +72,12 @@ static bool vibe_suppression = true;
 #define AK_VERSION       10 // UNUSED
 #define AK_VIBE_PAT_DISCONNECT   11
 #define AK_VIBE_PAT_CONNECT      12
+
+#define AK_MESSAGE_TYPE          99
+#define AK_SEND_BATT_PERCENT    100
+#define AK_SEND_BATT_CHARGING   101
+#define AK_SEND_BATT_PLUGGED    102
+#define AK_TIMEZONE_OFFSET      103
 
 #define AK_TRANS_ABBR_SUNDAY    500
 #define AK_TRANS_ABBR_MONDAY    501
@@ -233,14 +243,14 @@ struct tm *get_time()
     return localtime(&tt);
 }
 
-void setColors(GContext* ctx){
+void setColors(GContext* ctx) {
     window_set_background_color(window, GColorBlack);
     graphics_context_set_stroke_color(ctx, GColorWhite);
     graphics_context_set_fill_color(ctx, GColorBlack);
     graphics_context_set_text_color(ctx, GColorWhite);
 }
 
-void setInvColors(GContext* ctx){
+void setInvColors(GContext* ctx) {
     window_set_background_color(window, GColorWhite);
     graphics_context_set_stroke_color(ctx, GColorBlack);
     graphics_context_set_fill_color(ctx, GColorWhite);
@@ -399,8 +409,7 @@ void calendar_layer_update_callback(Layer *me, GContext* ctx) {
     }
 }
 
-void update_date_text()
-{
+void update_date_text() {
     struct tm *currentTime = get_time();
 
     // TODO - 18 @ this font is approaching the max width, localization may require smaller fonts, or no year...
@@ -563,26 +572,84 @@ void battery_layer_update_callback(Layer *me, GContext* ctx) {
 //  graphics_fill_rect(ctx, GRect(72+22+2, 6, battery_meter-4, 11), 0, GCornerNone);
 }
 
+static void request_timezone() {
+  DictionaryIterator *iter;
+  AppMessageResult result = app_message_outbox_begin(&iter);
+  if (iter == NULL) {
+    if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "iterator is null: %d", result); }
+    return;
+  }
+  if (dict_write_uint8(iter, AK_MESSAGE_TYPE, AK_TIMEZONE_OFFSET) != DICT_OK) {
+    return;
+  }
+  app_message_outbox_send();
+}
+
+static void battery_status_send(void *data) {
+  if ( (battery_percent  == sent_battery_percent  )
+     & (battery_charging == sent_battery_charging )
+     & (battery_plugged  == sent_battery_plugged  ) ) {
+    if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "repeat battery reading"); }
+    battery_sending = NULL;
+    return; // no need to resend the same value
+  }
+  DictionaryIterator *iter;
+
+  AppMessageResult result = app_message_outbox_begin(&iter);
+
+  if (iter == NULL) {
+    if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "iterator is null: %d", result); }
+    return;
+  }
+
+  if (result != APP_MSG_OK) {
+    if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Dict write failed to open outbox: %d", (AppMessageResult) result); }
+    return;
+  }
+
+  if (dict_write_uint8(iter, AK_MESSAGE_TYPE, AK_SEND_BATT_PERCENT) != DICT_OK) {
+    return;
+  }
+  if (dict_write_uint8(iter, AK_SEND_BATT_PERCENT, battery_percent) != DICT_OK) {
+    return;
+  }
+  if (dict_write_uint8(iter, AK_SEND_BATT_CHARGING, battery_charging ? 1: 0) != DICT_OK) {
+    return;
+  }
+  if (dict_write_uint8(iter, AK_SEND_BATT_PLUGGED, battery_plugged ? 1: 0) != DICT_OK) {
+    return;
+  }
+  app_message_outbox_send();
+  sent_battery_percent  = battery_percent;
+  sent_battery_charging = battery_charging;
+  sent_battery_plugged  = battery_plugged;
+  battery_sending = NULL;
+}
+
 static void handle_battery(BatteryChargeState charge_state) {
   static char battery_text[] = "100 ";
 
-  battery_meter = charge_state.charge_percent/10*(STAT_BATT_WIDTH-4)/9;
+  battery_percent = charge_state.charge_percent;
+  uint8_t battery_meter = battery_percent/10*(STAT_BATT_WIDTH-4)/9;
   battery_charging = charge_state.is_charging;
   battery_plugged = charge_state.is_plugged;
 
   layer_set_bounds(inverter_layer_get_layer(battery_meter_layer), GRect(STAT_BATT_LEFT+2, STAT_BATT_TOP+2, battery_meter, STAT_BATT_HEIGHT-4));
   layer_set_hidden(inverter_layer_get_layer(battery_meter_layer), false);
 
+  //if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "battery reading"); }
+  if (battery_sending == NULL) {
+    // multiple battery events can fire in rapid succession, we'll let it settle down before logging it
+    battery_sending = app_timer_register(5000, &battery_status_send, NULL);
+    if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "battery timer queued"); }
+  }
+
   if (charge_state.is_charging) { // charging
     layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), false);
     bitmap_layer_set_bitmap(bmp_charging_layer, image_charging_icon);
-//    if (charge_state.is_plugged) {
-//      vibes_short_pulse(); // XXX: testing that is_plugged is implemented
-//    }
-  } else {
+  } else { // not charging
     if (charge_state.is_plugged) { // plugged but not charging = charging complete...
       layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), true);
-      //vibes_short_pulse(); 
     } else { // normal wear
       if (settings.vibe_hour) {
         layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), false);
@@ -622,16 +689,19 @@ void generate_vibe(uint32_t vibe_pattern_number) {
       .durations = (uint32_t []) {50, 200, 50, 200, 50, 200, 50},
       .num_segments = 7
     } );
+    break;
   case 6: // Less Subtle
     vibes_enqueue_custom_pattern( (VibePattern) {
       .durations = (uint32_t []) {100, 200, 100, 200, 100, 200, 100},
       .num_segments = 7
     } );
+    break;
   case 7: // Not Subtle
     vibes_enqueue_custom_pattern( (VibePattern) {
       .durations = (uint32_t []) {500, 250, 500, 250, 500, 250, 500},
       .num_segments = 7
     } );
+    break;
   default: // No Vibration
     return;
   }
@@ -847,10 +917,27 @@ void my_out_sent_handler(DictionaryIterator *sent, void *context) {
 }
 void my_out_fail_handler(DictionaryIterator *failed, AppMessageResult reason, void *context) {
 // outgoing message failed
+  if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "AppMessage Failed to Send: %d", reason); }
 }
 
-void my_in_rcv_handler(DictionaryIterator *received, void *context) {
-// incoming message received
+void in_timezone_handler(DictionaryIterator *received, void *context) {
+    Tuple *tz_offset = dict_find(received, AK_TIMEZONE_OFFSET);
+    if (tz_offset != NULL) {
+      timezone_offset = tz_offset->value->int8;
+    }
+  if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Timezone received: %d", timezone_offset); }
+  static char timezone_text[7];
+  if (timezone_offset > 0) {
+    snprintf(timezone_text, sizeof(timezone_text), "GMT-%d", timezone_offset);
+  } else {
+    snprintf(timezone_text, sizeof(timezone_text), "GMT+%d", abs(timezone_offset));
+  }
+
+  //snprintf(timezone_text, sizeof(timezone_text), "GMT %d", timezone_offset);
+  text_layer_set_text(day_layer, timezone_text);
+}
+
+void in_configuration_handler(DictionaryIterator *received, void *context) {
     // style_inv == inverted
     Tuple *style_inv = dict_find(received, AK_STYLE_INV);
     if (style_inv != NULL) {
@@ -1034,8 +1121,25 @@ void my_in_rcv_handler(DictionaryIterator *received, void *context) {
   //update_time_text(&currentTime);
 }
 
+void my_in_rcv_handler(DictionaryIterator *received, void *context) {
+// incoming message received
+  Tuple *message_type = dict_find(received, AK_MESSAGE_TYPE);
+  if (message_type != NULL) {
+    if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Message type %d received", message_type->value->uint8); }
+    switch ( message_type->value->uint8 ) {
+    case AK_TIMEZONE_OFFSET:
+      in_timezone_handler(received, context);
+      return;
+    }
+  } else {
+    // default to configuration, which may not send the message type...
+    in_configuration_handler(received, context);
+  }
+}
+
 void my_in_drp_handler(AppMessageResult reason, void *context) {
 // incoming message dropped
+  if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "AppMessage Dropped: %d", reason); }
 }
 
 static void app_message_init(void) {
@@ -1061,6 +1165,8 @@ static void init(void) {
   if (persist_exists(PK_LANG_DATETIME)) {
     persist_read_data(PK_LANG_DATETIME, &lang_datetime, sizeof(lang_datetime) );
   }
+
+  //request_timezone();
 
   window = window_create();
   window_set_window_handlers(window, (WindowHandlers) {
