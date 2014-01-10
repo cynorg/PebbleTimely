@@ -8,7 +8,8 @@ Watchface
   New Features
     - display notice if there's a newer version available?
     - horizontal bar for seconds?
-    - timezone (use JS for detection)
+    - timezone finishing/cleanup
+    - reduce calls to get_time() ?
     - Alarm
     - Charge history
       - track battery/charging events in javascript local storage, plot over time w/ history on config page
@@ -29,5 +30,6 @@ HTML configuration page
   - select language @ top, localize entire page
     - change values based on language
   - embedded rather than hosted?  e.g. https://github.com/bertfreudenberg/PebbleONE/blob/master/wscript
+    - not a great idea, with current IOS restrictions...
   - version clearly displayed @ top
     - display notice if there's a newer version available?

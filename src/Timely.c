@@ -186,9 +186,9 @@ persist settings = {
   .vibe_hour  = 0, // no
   .dayOfWeekOffset = 0, // 0 - 6, Sun - Sat
   .date_format = 0, // Month DD, YYYY
-  .show_am_pm  = 0, // no AM/PM
-  .show_day    = 0, // no day name
-  .show_week  =  0, // no week number
+  .show_am_pm  = 1, // no AM/PM       [0:Hide, 1:AM/PM, 2:TZ,    3:Week]
+  .show_day    = 1, // no day name    [0:Hide, 1:Day,   2:Month, 3:TZ, 4:Week, 5:AM/PM]
+  .show_week   = 1, // no week number [0:Hide, 1:Week,  2:TZ,    3:AM/PM
   .week_format = 0, // ISO 8601
   .vibe_pat_disconnect = 2, // double vibe
   .vibe_pat_connect = 0, // no vibe
@@ -472,12 +472,17 @@ void update_time_text() {
 
 }
 
-void update_day_text() {
+void update_day_text(TextLayer *which_layer) {
   struct tm *currentTime = get_time();
-  text_layer_set_text(day_layer, lang_datetime.DaysOfWeek[currentTime->tm_wday]);
+  text_layer_set_text(which_layer, lang_datetime.DaysOfWeek[currentTime->tm_wday]);
 }
 
-void update_week_text() {
+void update_month_text(TextLayer *which_layer) {
+  struct tm *currentTime = get_time();
+  text_layer_set_text(which_layer, lang_datetime.monthsNames[currentTime->tm_mon]);
+}
+
+void update_week_text(TextLayer *which_layer) {
   struct tm *currentTime = get_time();
   static char week_text[] = "W00";
   if (settings.week_format == 0) {
@@ -490,20 +495,89 @@ void update_week_text() {
     // Week number with the first Monday as the first day of week one (00-53)
     strftime(week_text, sizeof(week_text), "W%W", currentTime);
   }
-  text_layer_set_text(week_layer, week_text);
+  text_layer_set_text(which_layer, week_text);
 }
 
-void update_ampm_text() {
+void update_ampm_text(TextLayer *which_layer) {
   struct tm *currentTime = get_time();
 
   if (currentTime->tm_hour < 12 ) {
-    text_layer_set_text(ampm_layer, lang_gen.abbrTime[0]); //  0-11 AM
+    text_layer_set_text(which_layer, lang_gen.abbrTime[0]); //  0-11 AM
   } else {
-    text_layer_set_text(ampm_layer, lang_gen.abbrTime[1]); // 12-23 PM
+    text_layer_set_text(which_layer, lang_gen.abbrTime[1]); // 12-23 PM
+  }
+}
+
+
+void update_timezone_text(TextLayer *which_layer) {
+  static char timezone_text[7];
+  if (timezone_offset > 0) {
+    snprintf(timezone_text, sizeof(timezone_text), "GMT-%d", timezone_offset);
+  } else {
+    snprintf(timezone_text, sizeof(timezone_text), "GMT+%d", abs(timezone_offset));
+  }
+  text_layer_set_text(which_layer, timezone_text);
+}
+
+void process_show_week() {
+  switch ( settings.show_week ) {
+  case 0: // Hide
+    //layer_set_hidden(text_layer_get_layer(week_layer), true);
+    return;
+  case 1: // Show Week
+    update_week_text(week_layer);
+    break;
+  case 2: // Show Timezone
+    update_timezone_text(week_layer);
+    break;
+  case 3: // Show AM/PM
+    update_ampm_text(week_layer);
+    break;
+  }
+}
+
+void process_show_day() {
+  switch ( settings.show_day ) {
+  case 0: // Hide
+    //layer_set_hidden(text_layer_get_layer(day_layer), true);
+    return;
+  case 1: // Show Day
+    update_day_text(day_layer);
+    break;
+  case 2: // Show Month
+    update_month_text(day_layer);
+    break;
+  case 3: // Show Timezone
+    update_timezone_text(day_layer);
+    break;
+  case 4: // Show Week
+    update_week_text(day_layer);
+    break;
+  case 5: // Show AM/PM
+    update_ampm_text(day_layer);
+    break;
+  }
+}
+
+void process_show_ampm() {
+  switch ( settings.show_am_pm ) {
+  case 0: // Hide
+    //layer_set_hidden(text_layer_get_layer(ampm_layer), true);
+    return;
+  case 1: // Show AM/PM
+    update_ampm_text(ampm_layer);
+    break;
+  case 2: // Show Timezone
+    update_timezone_text(ampm_layer);
+    break;
+  case 3: // Show Week
+    update_week_text(ampm_layer);
+    break;
   }
 }
 
 void position_time_layer() {
+  // potentially adjust the clock position, if we've added/removed the week, day, or AM/PM layers
   int time_offset = 0;
   if (!settings.show_day && !settings.show_week) {
     time_offset = 4;
@@ -514,15 +588,20 @@ void position_time_layer() {
   layer_set_frame( text_layer_get_layer(time_layer), GRect(REL_CLOCK_TIME_LEFT, REL_CLOCK_TIME_TOP + time_offset, DEVICE_WIDTH, REL_CLOCK_TIME_HEIGHT) );
 }
 
+void update_datetime_subtext() {
+    process_show_week();
+    process_show_day();
+    process_show_ampm();
+    position_time_layer();
+}
+
 void datetime_layer_update_callback(Layer *me, GContext* ctx) {
     (void)me;
 
     setColors(ctx);
     update_date_text();
     update_time_text();
-    update_week_text();
-    update_day_text();
-    update_ampm_text();
+    update_datetime_subtext();
 }
 
 void statusbar_layer_update_callback(Layer *me, GContext* ctx) {
@@ -786,14 +865,13 @@ static void window_load(Window *window) {
   position_time_layer(); // make use of our whitespace, if we have it...
   layer_add_child(datetime_layer, text_layer_get_layer(time_layer));
 
-  week_layer = text_layer_create( GRect(4, REL_CLOCK_SUBTEXT_TOP, 28, 16) );
+  week_layer = text_layer_create( GRect(4, REL_CLOCK_SUBTEXT_TOP, 140, 16) );
   text_layer_set_text_color(week_layer, GColorWhite);
   text_layer_set_background_color(week_layer, GColorClear);
   text_layer_set_font(week_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
   text_layer_set_text_alignment(week_layer, GTextAlignmentLeft);
   layer_add_child(datetime_layer, text_layer_get_layer(week_layer));
-  update_week_text();
-  if ( !settings.show_week ) {
+  if ( settings.show_week == 0 ) {
     layer_set_hidden(text_layer_get_layer(week_layer), true);
   }
 
@@ -803,21 +881,21 @@ static void window_load(Window *window) {
   text_layer_set_font(day_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
   text_layer_set_text_alignment(day_layer, GTextAlignmentCenter);
   layer_add_child(datetime_layer, text_layer_get_layer(day_layer));
-  update_day_text();
-  if ( !settings.show_day ) {
+  if ( settings.show_day == 0 ) {
     layer_set_hidden(text_layer_get_layer(day_layer), true);
   }
 
-  ampm_layer = text_layer_create( GRect(DEVICE_WIDTH - 28, REL_CLOCK_SUBTEXT_TOP, 24, 16) );
+  ampm_layer = text_layer_create( GRect(0, REL_CLOCK_SUBTEXT_TOP, 140, 16) );
   text_layer_set_text_color(ampm_layer, GColorWhite);
   text_layer_set_background_color(ampm_layer, GColorClear);
   text_layer_set_font(ampm_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
   text_layer_set_text_alignment(ampm_layer, GTextAlignmentRight);
   layer_add_child(datetime_layer, text_layer_get_layer(ampm_layer));
-  update_ampm_text();
-  if ( !settings.show_am_pm ) {
+  if ( settings.show_am_pm == 0 ) {
     layer_set_hidden(text_layer_get_layer(ampm_layer), true);
   }
+
+  update_datetime_subtext();
 
   text_connection_layer = text_layer_create( GRect(20+STAT_BT_ICON_LEFT, 0, 72, 22) );
   text_layer_set_text_color(text_connection_layer, GColorWhite);
@@ -896,15 +974,14 @@ void handle_minute_tick(struct tm *tick_time, TimeUnits units_changed)
   }
 
   if (units_changed & HOUR_UNIT) {
-    update_ampm_text();
+    request_timezone();
+    update_datetime_subtext();
     if (settings.vibe_hour) {
       generate_vibe(settings.vibe_hour);
     }
   }
 
   if (units_changed & DAY_UNIT) {
-    update_week_text();
-    update_day_text();
     layer_mark_dirty(datetime_layer);
     layer_mark_dirty(calendar_layer);
   }
@@ -926,15 +1003,6 @@ void in_timezone_handler(DictionaryIterator *received, void *context) {
       timezone_offset = tz_offset->value->int8;
     }
   if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Timezone received: %d", timezone_offset); }
-  static char timezone_text[7];
-  if (timezone_offset > 0) {
-    snprintf(timezone_text, sizeof(timezone_text), "GMT-%d", timezone_offset);
-  } else {
-    snprintf(timezone_text, sizeof(timezone_text), "GMT+%d", abs(timezone_offset));
-  }
-
-  //snprintf(timezone_text, sizeof(timezone_text), "GMT %d", timezone_offset);
-  text_layer_set_text(day_layer, timezone_text);
 }
 
 void in_configuration_handler(DictionaryIterator *received, void *context) {
@@ -1001,7 +1069,6 @@ void in_configuration_handler(DictionaryIterator *received, void *context) {
     Tuple *FMT_WEEK = dict_find(received, AK_INTL_FMT_WEEK);
     if (FMT_WEEK != NULL) {
       settings.week_format = FMT_WEEK->value->uint8;
-      update_week_text();
     }
 
     // AK_STYLE_DAY
@@ -1026,8 +1093,8 @@ void in_configuration_handler(DictionaryIterator *received, void *context) {
       }
     }
 
-    // potentially adjust the clock position, if we've added/removed the week, day, or AM/PM
-    position_time_layer();
+    // now that we've received any changes, redraw the subtext (which processes week, day, and AM/PM)
+    update_datetime_subtext();
 
     // AK_VIBE_PAT_DISCONNECT / AK_VIBE_PAT_CONNECT == vibration patterns for connect and disconnect
     Tuple *VIBE_PAT_D = dict_find(received, AK_VIBE_PAT_DISCONNECT);
@@ -1166,7 +1233,7 @@ static void init(void) {
     persist_read_data(PK_LANG_DATETIME, &lang_datetime, sizeof(lang_datetime) );
   }
 
-  //request_timezone();
+  request_timezone();
 
   window = window_create();
   window_set_window_handlers(window, (WindowHandlers) {

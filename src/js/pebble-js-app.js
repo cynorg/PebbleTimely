@@ -21,6 +21,7 @@ Pebble.addEventListener("appmessage", function(e) {
 
 function saveBatteryValue(e) {
   console.log("Battery: " + e.payload.send_batt_percent + "%, Charge: " + e.payload.send_batt_charging + ", Plugged: " + e.payload.send_batt_plugged);
+ // TODO - actually store these in localStorage along with a date object in some useful manner
 }
 
 function sendTimezoneToWatch() {
