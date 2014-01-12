@@ -118,16 +118,16 @@ static int8_t timezone_offset = 0;
 #define LAYOUT_SLOT_TOP      24 // 72 tall
 #define LAYOUT_SLOT_BOT      96 // 72 tall, 4px gap above
 #define LAYOUT_SLOT_HEIGHT   72
-#define STAT_BATT_LEFT      100 // LEFT + WIDTH + NIB_WIDTH <= 143
+#define STAT_BATT_LEFT       96 // LEFT + WIDTH + NIB_WIDTH <= 143
 #define STAT_BATT_TOP         4
-#define STAT_BATT_WIDTH      40 // should be divisible by 9, after subtracting 4 (2 pixels/side for the 'border')
+#define STAT_BATT_WIDTH      44 // should be divisible by 10, after subtracting 4 (2 pixels/side for the 'border')
 #define STAT_BATT_HEIGHT     15
 #define STAT_BATT_NIB_WIDTH   3 // >= 3
 #define STAT_BATT_NIB_HEIGHT  5 // >= 3
 #define STAT_BT_ICON_LEFT    -2 // 0
-#define STAT_BT_ICON_TOP      2 //  62 - left of time
-#define STAT_CHRG_ICON_LEFT  80 // 130 - right of time
-#define STAT_CHRG_ICON_TOP    2 //  62 - right of time
+#define STAT_BT_ICON_TOP      2
+#define STAT_CHRG_ICON_LEFT  76
+#define STAT_CHRG_ICON_TOP    2
 
 // relative coordinates (relative to SLOTs)
 #define REL_CLOCK_DATE_LEFT       0
@@ -632,12 +632,6 @@ void slot_bot_layer_update_callback(Layer *me, GContext* ctx) {
 
 void battery_layer_update_callback(Layer *me, GContext* ctx) {
 // simply draw the battery outline here - the text is a different layer, and we then 'fill' it with an inverterLayer
-//  if (charge_state.is_charging) {
-//    snprintf(battery_text, sizeof(battery_text), "%d%%++", charge_state.charge_percent);
-//  } else {
-//  if (charge_state.is_plugged) { ; } // plugged but not charging = warn user
-//    snprintf(battery_text, sizeof(battery_text), "%d%%", charge_state.charge_percent);
-//  }
   setColors(ctx);
 // battery outline
   graphics_draw_rect(ctx, GRect(STAT_BATT_LEFT, STAT_BATT_TOP, STAT_BATT_WIDTH, STAT_BATT_HEIGHT));
@@ -646,9 +640,6 @@ void battery_layer_update_callback(Layer *me, GContext* ctx) {
                                 STAT_BATT_TOP + (STAT_BATT_HEIGHT - STAT_BATT_NIB_HEIGHT)/2,
                                 STAT_BATT_NIB_WIDTH,
                                 STAT_BATT_NIB_HEIGHT));
-// fill it in with current power
-//  setInvColors(ctx);
-//  graphics_fill_rect(ctx, GRect(72+22+2, 6, battery_meter-4, 11), 0, GCornerNone);
 }
 
 static void request_timezone() {
@@ -709,10 +700,11 @@ static void handle_battery(BatteryChargeState charge_state) {
   static char battery_text[] = "100 ";
 
   battery_percent = charge_state.charge_percent;
-  uint8_t battery_meter = battery_percent/10*(STAT_BATT_WIDTH-4)/9;
+  uint8_t battery_meter = battery_percent/10*(STAT_BATT_WIDTH-4)/10;
   battery_charging = charge_state.is_charging;
   battery_plugged = charge_state.is_plugged;
 
+  // fill it in with current power
   layer_set_bounds(inverter_layer_get_layer(battery_meter_layer), GRect(STAT_BATT_LEFT+2, STAT_BATT_TOP+2, battery_meter, STAT_BATT_HEIGHT-4));
   layer_set_hidden(inverter_layer_get_layer(battery_meter_layer), false);
 
