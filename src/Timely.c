@@ -697,7 +697,7 @@ static void battery_status_send(void *data) {
 }
 
 static void handle_battery(BatteryChargeState charge_state) {
-  static char battery_text[] = "100 ";
+  static char battery_text[] = "100";
 
   battery_percent = charge_state.charge_percent;
   uint8_t battery_meter = battery_percent/10*(STAT_BATT_WIDTH-4)/10;
