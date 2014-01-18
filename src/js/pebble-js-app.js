@@ -4,7 +4,7 @@ Pebble.addEventListener("ready", function(e) {
 
 Pebble.addEventListener("showConfiguration", function(e) {
 //  console.log("Configuration window launching...");
-  Pebble.openURL("http://www.cyn.org/pebble/timely/2.0.2.html" + '?_=' + new Date().getTime() );
+  Pebble.openURL("http://www.cyn.org/pebble/timely/2.1.0.html" + '?_=' + new Date().getTime() );
 });
 
 Pebble.addEventListener("appmessage", function(e) {
@@ -21,6 +21,16 @@ Pebble.addEventListener("appmessage", function(e) {
 
 function saveBatteryValue(e) {
   console.log("Battery: " + e.payload.send_batt_percent + "%, Charge: " + e.payload.send_batt_charging + ", Plugged: " + e.payload.send_batt_plugged);
+/*
+var currentdate = new Date(); 
+var datetime = "Date: " + currentdate.getDate() + "/"
+                + (currentdate.getMonth()+1)  + "/" 
+                + currentdate.getFullYear() + " @ "  
+                + currentdate.getHours() + ":"  
+                + currentdate.getMinutes() + ":" 
+                + currentdate.getSeconds();
+console.log(datetime);
+*/
  // TODO - actually store these in localStorage along with a date object in some useful manner
 }
 
@@ -32,23 +42,24 @@ function sendTimezoneToWatch() {
       console.log("Sent TZ message (" + offsetHours + ") with transactionId=" + e.data.transactionId);
     },
     function(e) {
-      console.log("Unable to deliver TZ message with transactionId=" + e.data.transactionId
-        + " Error is: " + e.error.message);
+      console.log("Unable to deliver TZ message with transactionId=" + e.data.transactionId + " Error is: " + e.data.error.message);
     }
   );
 }
 
 Pebble.addEventListener("webviewclosed", function(e) {
   //console.log("Configuration closed");
-  var options = JSON.parse(decodeURIComponent(e.response));
-  //console.log("Options = " + JSON.stringify(options));
-  var transactionId = Pebble.sendAppMessage( options,
-    function(e) {
-      console.log("Successfully delivered message with transactionId=" + e.data.transactionId);
-    },
-    function(e) {
-      console.log("Unable to deliver message with transactionId=" + e.data.transactionId
-        + " Error is: " + e.error.message);
-    }
-  );
+  //console.log(e.response);
+  if (e.response != null) { // user clicked Save/Submit, not Cancel/Done
+    var options = JSON.parse(decodeURIComponent(e.response));
+    //console.log("Options = " + JSON.stringify(options));
+    var transactionId = Pebble.sendAppMessage( options,
+      function(e) {
+        console.log("Successfully delivered message with transactionId=" + e.data.transactionId);
+      },
+      function(e) {
+        console.log("Unable to deliver message with transactionId=" + e.data.transactionId + " Error is: " + e.data.error.message);
+      }
+    );
+  }
 });

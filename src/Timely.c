@@ -1,5 +1,5 @@
 #include <pebble.h>
-#define DEBUGLOG 1
+#define DEBUGLOG 0
 #define TRANSLOG 0
 /*
  * If you fork this code and release the resulting app, please be considerate and change all the appropriate values in appinfo.json 
@@ -73,6 +73,7 @@ static int8_t timezone_offset = 0;
 #define AK_VIBE_PAT_DISCONNECT   11
 #define AK_VIBE_PAT_CONNECT      12
 #define AK_STRFTIME_FORMAT       13
+#define AK_TRACK_BATTERY         14
 
 #define AK_MESSAGE_TYPE          99
 #define AK_SEND_BATT_PERCENT    100
@@ -172,6 +173,7 @@ typedef struct persist {
   uint8_t vibe_pat_disconnect;    // vibration pattern for disconnect
   uint8_t vibe_pat_connect;       // vibration pattern for connect
   char *strftime_format;          // custom date_format string (date_format = 255)
+  uint8_t track_battery;          // track battery information
 } __attribute__((__packed__)) persist;
 
 typedef struct persist_datetime_lang { // 247 bytes
@@ -189,7 +191,7 @@ typedef struct persist_general_lang { // 101 bytes
 } __attribute__((__packed__)) persist_general_lang;
 
 persist settings = {
-  .version    = 2,
+  .version    = 10,
   .inverted   = 0, // no, dark
   .day_invert = 1, // yes
   .grid       = 1, // yes
@@ -203,6 +205,7 @@ persist settings = {
   .vibe_pat_disconnect = 2, // double vibe
   .vibe_pat_connect = 0, // no vibe
   .strftime_format = "%Y-%m-%d",
+  .track_battery = 0, // no battery tracking by default
 };
 
 persist_datetime_lang lang_datetime = {
@@ -741,6 +744,9 @@ static void request_timezone() {
 }
 
 static void battery_status_send(void *data) {
+  if (!settings.track_battery) {
+    return; // if user has chosen not to track battery (saves power w/ appmessages)
+  }
   if ( (battery_percent  == sent_battery_percent  )
      & (battery_charging == sent_battery_charging )
      & (battery_plugged  == sent_battery_plugged  ) ) {
@@ -1182,6 +1188,15 @@ void in_configuration_handler(DictionaryIterator *received, void *context) {
     Tuple *VIBE_PAT_C = dict_find(received, AK_VIBE_PAT_CONNECT);
     if (VIBE_PAT_C != NULL) {
       settings.vibe_pat_connect = VIBE_PAT_C->value->uint8;
+    }
+
+    // AK_TRACK_BATTERY == vibe_hour - vibration patterns for hourly vibration
+    Tuple *track_battery = dict_find(received, AK_TRACK_BATTERY);
+    if (track_battery != NULL) {
+      settings.track_battery = track_battery->value->uint8;
+      if (settings.track_battery) {
+        battery_status_send(NULL); // either it was just turned on, or we'll get a bonus datapoint from running config.
+      }
     }
 
     // begin translations...

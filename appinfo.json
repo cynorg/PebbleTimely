@@ -1,10 +1,10 @@
 {
   "uuid": "55f7744b-f586-45b8-854c-554f34489f20",
   "shortName": "Timely",
-  "longName": "Timely 2.0",
+  "longName": "Timely 2.1",
   "companyName": "Martin Norland (@cynorg)",
   "versionCode": 2,
-  "versionLabel": "2.0.2",
+  "versionLabel": "2.1.0",
   "watchapp": {
     "watchface": true
   },
@@ -24,6 +24,7 @@
     "vibe_pat_disconnect":  11,
     "vibe_pat_connect":     12,
     "strftime_format":      13,
+    "track_battery":        14,
     "message_type":         99,
     "send_batt_percent":   100,
     "send_batt_charging":  101,
