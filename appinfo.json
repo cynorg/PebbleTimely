@@ -23,6 +23,7 @@
     "TODO___version":       10,
     "vibe_pat_disconnect":  11,
     "vibe_pat_connect":     12,
+    "strftime_format":      13,
     "message_type":         99,
     "send_batt_percent":   100,
     "send_batt_charging":  101,
@@ -58,7 +59,19 @@
     "trans_connected":      527,
     "trans_disconnected":   528,
     "trans_time_am":    529,
-    "trans_time_pm":    530
+    "trans_time_pm":    530,
+    "trans_abbr_january":   531,
+    "trans_abbr_february":  532,
+    "trans_abbr_march":     533,
+    "trans_abbr_april":     534,
+    "trans_abbr_may":       535,
+    "trans_abbr_june":      536,
+    "trans_abbr_july":      537,
+    "trans_abbr_august":    538,
+    "trans_abbr_september": 539,
+    "trans_abbr_october":   540,
+    "trans_abbr_november":  541,
+    "trans_abbr_december":  542
   },
   "resources": {
     "media": [

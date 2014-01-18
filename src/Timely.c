@@ -72,6 +72,7 @@ static int8_t timezone_offset = 0;
 #define AK_VERSION       10 // UNUSED
 #define AK_VIBE_PAT_DISCONNECT   11
 #define AK_VIBE_PAT_CONNECT      12
+#define AK_STRFTIME_FORMAT       13
 
 #define AK_MESSAGE_TYPE          99
 #define AK_SEND_BATT_PERCENT    100
@@ -110,6 +111,18 @@ static int8_t timezone_offset = 0;
 #define AK_TRANS_DISCONNECTED  528
 #define AK_TRANS_TIME_AM    529
 #define AK_TRANS_TIME_PM    530
+#define AK_TRANS_ABBR_JANUARY    531
+#define AK_TRANS_ABBR_FEBRUARY   532
+#define AK_TRANS_ABBR_MARCH      533
+#define AK_TRANS_ABBR_APRIL      534
+#define AK_TRANS_ABBR_MAY        535
+#define AK_TRANS_ABBR_JUNE       536
+#define AK_TRANS_ABBR_JULY       537
+#define AK_TRANS_ABBR_AUGUST     538
+#define AK_TRANS_ABBR_SEPTEMBER  539
+#define AK_TRANS_ABBR_OCTOBER    540
+#define AK_TRANS_ABBR_NOVEMBER   541
+#define AK_TRANS_ABBR_DECEMBER   542
 
 // primary coordinates
 #define DEVICE_WIDTH        144
@@ -158,24 +171,21 @@ typedef struct persist {
   uint8_t week_format;            // week format (calculation, e.g. ISO 8601)
   uint8_t vibe_pat_disconnect;    // vibration pattern for disconnect
   uint8_t vibe_pat_connect;       // vibration pattern for connect
-  uint8_t slot_one;               // item in slot 1 [T]
-  uint8_t slot_two;               // item in slot 2 [B]
-  uint8_t slot_three;             // item in slot 3 [T, doubletap]
-  uint8_t slot_four;              // item in slot 4 [B, doubletap]
-  uint8_t slot_five;              // item in slot 5 [T, tripletap]
-  uint8_t slot_six;               // item in slot 6 [B, tripletap]
+  char *strftime_format;          // custom date_format string (date_format = 255)
 } __attribute__((__packed__)) persist;
 
-typedef struct persist_datetime_lang { // 249 bytes
-  char abbrDaysOfWeek[7][3];      //  21:  2 characters for each of  7 weekdays
-  char monthsNames[12][12];       // 144: 11 characters for each of 12 months
-  char DaysOfWeek[7][12];         //  84: 11 characters for each of  7 weekdays
-//                                   249 bytes
+typedef struct persist_datetime_lang { // 247 bytes
+  char monthsNames[12][13];       // 156: 12 characters for each of 12 months
+  char DaysOfWeek[7][13];         //  91: 12 characters for each of  7 weekdays
+//                                   247 bytes
 } __attribute__((__packed__)) persist_datetime_lang;
 
-typedef struct persist_general_lang { // 32 bytes
+typedef struct persist_general_lang { // 101 bytes
   char statuses[2][10];           //  20:  9 characters for each of  2 statuses
   char abbrTime[2][6];            //  12:  5 characters for each of  2 abbreviations
+  char abbrDaysOfWeek[7][3];      //  21:  2 characters for each of  7 weekdays abbreviations
+  char abbrMonthsNames[12][4];    //  48:  3 characters for each of 12 months abbreviations
+//                                   101 bytes
 } __attribute__((__packed__)) persist_general_lang;
 
 persist settings = {
@@ -186,23 +196,16 @@ persist settings = {
   .vibe_hour  = 0, // no
   .dayOfWeekOffset = 0, // 0 - 6, Sun - Sat
   .date_format = 0, // Month DD, YYYY
-  .show_am_pm  = 1, // no AM/PM       [0:Hide, 1:AM/PM, 2:TZ,    3:Week]
-  .show_day    = 1, // no day name    [0:Hide, 1:Day,   2:Month, 3:TZ, 4:Week, 5:AM/PM]
-  .show_week   = 1, // no week number [0:Hide, 1:Week,  2:TZ,    3:AM/PM
+  .show_am_pm  = 0, // no AM/PM       [0:Hide, 1:AM/PM, 2:TZ,    3:Week]
+  .show_day    = 0, // no day name    [0:Hide, 1:Day,   2:Month, 3:TZ, 4:Week, 5:AM/PM]
+  .show_week   = 0, // no week number [0:Hide, 1:Week,  2:TZ,    3:AM/PM
   .week_format = 0, // ISO 8601
   .vibe_pat_disconnect = 2, // double vibe
   .vibe_pat_connect = 0, // no vibe
-  .slot_one   = 0, // clock_1
-  .slot_two   = 1, // calendar
-  .slot_three = 2, // TODO: weather
-  .slot_four  = 3, // TODO: clock_2 (2nd timezone)
-  // options for other slots: extend weather to take 2, moon, tides, travel to/home, context, etc.
-  .slot_five  = 1, // TODO: calendar (test)
-  .slot_six   = 0, // TODO: weather  (test)
+  .strftime_format = "%Y-%m-%d",
 };
 
 persist_datetime_lang lang_datetime = {
-  .abbrDaysOfWeek = { "Su", "Mo", "Tu", "We", "Th", "Fr", "Sa" },
   .monthsNames = { "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" },
   .DaysOfWeek = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" },
 };
@@ -210,6 +213,8 @@ persist_datetime_lang lang_datetime = {
 persist_general_lang lang_gen = {
   .statuses = { "Linked", "NOLINK" },
   .abbrTime = { "AM", "PM" },
+  .abbrDaysOfWeek = { "Su", "Mo", "Tu", "We", "Th", "Fr", "Sa" },
+  .abbrMonthsNames = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" },
 };
 
 // How many days are/were in the month
@@ -372,7 +377,7 @@ void calendar_layer_update_callback(Layer *me, GContext* ctx) {
       graphics_fill_rect(ctx, GRect (CAL_WIDTH * col + CAL_LEFT + CAL_GAP, 0, CAL_WIDTH - CAL_GAP, CAL_HEIGHT - CAL_GAP), 0, GCornerNone);
 
       // draw the cell text
-      graphics_draw_text(ctx, lang_datetime.abbrDaysOfWeek[weekday], current, GRect(CAL_WIDTH * col + CAL_LEFT + CAL_GAP, CAL_GAP + font_vert_offset, CAL_WIDTH, CAL_HEIGHT), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL); 
+      graphics_draw_text(ctx, lang_gen.abbrDaysOfWeek[weekday], current, GRect(CAL_WIDTH * col + CAL_LEFT + CAL_GAP, CAL_GAP + font_vert_offset, CAL_WIDTH, CAL_HEIGHT), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL); 
       if (col == specialDay) {
         current = normal;
         font_vert_offset = 0;
@@ -416,30 +421,110 @@ void update_date_text() {
     //September 11, 2013 => 18 chars
     //123456789012345678
 
-    static char date_text[20];
+    static char date_text[15];
+    static char date_text_2[15];
     static char date_string[30];
-
+    char *strftime_format;
     // http://www.cplusplus.com/reference/ctime/strftime/
-    //strftime(date_text, sizeof(date_text), "%B %d, %Y", currentTime); // Month DD, YYYY {not localized}
 
-    if (settings.date_format == 0) {
-      // Month DD, YYYY (localized)
-      strftime(date_text, sizeof(date_text), "%d, %Y", currentTime); // DD, YYYY
-      snprintf(date_string, sizeof(date_string), "%s %s", lang_datetime.monthsNames[currentTime->tm_mon], date_text); // prefix Month (localized)
-    } else if (settings.date_format == 1) {
-      // DD.MM.YYYY
-      strftime(date_text, sizeof(date_text), "%d.%m.%Y", currentTime);  // DD.MM.YYYY
+    if (settings.date_format < 215) { // localized date formats...
+      switch ( settings.date_format ) {
+      case 0: // MMMM DD, YYYY (localized)
+        strftime(date_text, sizeof(date_text), "%d, %Y", currentTime); // DD, YYYY
+        snprintf(date_string, sizeof(date_string), "%s %s", lang_datetime.monthsNames[currentTime->tm_mon], date_text); // prefix Month
+        break;
+      case 1: // MMMM DD, 'YY (localized)
+        strftime(date_text, sizeof(date_text), "%d, '%y", currentTime); // DD, 'YY
+        snprintf(date_string, sizeof(date_string), "%s %s", lang_datetime.monthsNames[currentTime->tm_mon], date_text); // prefix Month
+        break;
+      case 2: // Mmm DD, YYYY (localized)
+        strftime(date_text, sizeof(date_text), "%d, %Y", currentTime); // DD, YYYY
+        snprintf(date_string, sizeof(date_string), "%s %s", lang_gen.abbrMonthsNames[currentTime->tm_mon], date_text); // prefix Mon
+        break;
+      case 3: // Mmm DD, 'YY (localized)
+        strftime(date_text, sizeof(date_text), "%d, '%y", currentTime); // DD, 'YY
+        snprintf(date_string, sizeof(date_string), "%s %s", lang_gen.abbrMonthsNames[currentTime->tm_mon], date_text); // prefix Mon
+        break;
+      case 11: // D MMMM YYYY (localized)
+        strftime(date_text, sizeof(date_text), "%d", currentTime); // D
+        strftime(date_text_2, sizeof(date_text_2), "%Y", currentTime); // YYYY
+        snprintf(date_string, sizeof(date_string), "%s %s %s", date_text_2, lang_datetime.monthsNames[currentTime->tm_mon], date_text); // insert Month
+        break;
+      case 12: // D MMMM 'YY (localized)
+        strftime(date_text, sizeof(date_text), "%d", currentTime); // D
+        strftime(date_text_2, sizeof(date_text_2), "'%y", currentTime); // YY
+        snprintf(date_string, sizeof(date_string), "%s %s %s", date_text_2, lang_datetime.monthsNames[currentTime->tm_mon], date_text); // insert Month
+        break;
+      case 13: // D Mmm YYYY (localized)
+        strftime(date_text, sizeof(date_text), "%d", currentTime); // D
+        strftime(date_text_2, sizeof(date_text_2), "%Y", currentTime); // YYYY
+        snprintf(date_string, sizeof(date_string), "%s %s %s", date_text_2, lang_gen.abbrMonthsNames[currentTime->tm_mon], date_text); // insert Mon
+        break;
+      case 14: // D Mmm 'YY (localized)
+        strftime(date_text, sizeof(date_text), "%d", currentTime); // D
+        strftime(date_text_2, sizeof(date_text_2), "'%y", currentTime); // YY
+        snprintf(date_string, sizeof(date_string), "%s %s %s", date_text_2, lang_gen.abbrMonthsNames[currentTime->tm_mon], date_text); // insert Mon
+        break;
+      }
+    } else { // non-localized date formats, straight strftime function calls
+      switch ( settings.date_format ) {
+      // DD MM YYYY (%d %m %Y)
+      case 215: strftime_format = "%d.%m.%Y"; break; // DD.MM.YYYY
+      case 216: strftime_format = "%d-%m-%Y"; break; // DD-MM-YYYY
+      case 217: strftime_format = "%d/%m/%Y"; break; // DD/MM/YYYY
+      case 218: strftime_format = "%d %m %Y"; break; // DD MM YYYY
+      case 219: strftime_format = "%d%m%Y"; break;   // DDMMYYYY
+      // DD MM YY (%d %m %y)
+      case 220: strftime_format = "%d.%m.%y"; break; // DD.MM.YY
+      case 221: strftime_format = "%d-%m-%y"; break; // DD-MM-YY
+      case 222: strftime_format = "%d/%m/%y"; break; // DD/MM/YY
+      case 223: strftime_format = "%d %m %y"; break; // DD MM YY
+      case 224: strftime_format = "%d%m%y"; break;   // DDMMYY
+      // dd MM YYYY (%e %m %Y)
+      case 225: strftime_format = "%e.%m.%Y"; break; // dd.MM.YYYY
+      case 226: strftime_format = "%e-%m-%Y"; break; // dd-MM-YYYY
+      case 227: strftime_format = "%e/%m/%Y"; break; // dd/MM/YYYY
+      case 228: strftime_format = "%e %m %Y"; break; // dd MM YYYY
+      case 229: strftime_format = "%e%m%Y"; break;   // ddMMYYYY
+      // dd MM YY (%e %m %y)
+      case 230: strftime_format = "%e.%m.%y"; break; // dd.MM.YY
+      case 231: strftime_format = "%e-%m-%y"; break; // dd-MM-YY
+      case 232: strftime_format = "%e/%m/%y"; break; // dd/MM/YY
+      case 233: strftime_format = "%e %m %y"; break; // dd MM YY
+      case 234: strftime_format = "%e%m%y"; break;   // ddMMYY
+
+      // YYYY MM DD (%Y %m %d)
+      case 235: strftime_format = "%Y.%m.%d"; break; // YYYY.MM.DD
+      case 236: strftime_format = "%Y-%m-%d"; break; // YYYY-MM-DD
+      case 237: strftime_format = "%Y/%m/%d"; break; // YYYY/MM/DD
+      case 238: strftime_format = "%Y %m %d"; break; // YYYY MM DD
+      case 239: strftime_format = "%Y%m%d"; break;   // YYYYMMDD
+      // YY MM DD (%y %m %d)
+      case 240: strftime_format = "%y.%m.%d"; break; // YY.MM.DD
+      case 241: strftime_format = "%y-%m-%d"; break; // YY-MM-DD
+      case 242: strftime_format = "%y/%m/%d"; break; // YY/MM/DD
+      case 243: strftime_format = "%y %m %d"; break; // YY MM DD
+      case 244: strftime_format = "%y%m%d"; break;   // YYMMDD
+      // YYYY MM dd (%Y %m %e)
+      case 245: strftime_format = "%Y.%m.%e"; break; // YYYY.MM.dd
+      case 246: strftime_format = "%Y-%m-%e"; break; // YYYY-MM-dd
+      case 247: strftime_format = "%Y/%m/%e"; break; // YYYY/MM/dd
+      case 248: strftime_format = "%Y %m %e"; break; // YYYY MM dd
+      case 249: strftime_format = "%Y%m%e"; break;   // YYYYMMdd
+      // YY MM dd (%y %m %e)
+      case 250: strftime_format = "%y.%m.%e"; break; // YY.MM.dd
+      case 251: strftime_format = "%y-%m-%e"; break; // YY-MM-dd
+      case 252: strftime_format = "%y/%m/%e"; break; // YY/MM/dd
+      case 253: strftime_format = "%y %m %e"; break; // YY MM dd
+      case 254: strftime_format = "%y%m%e"; break;   // YYMMdd
+      // reserve 255 for a 'custom strftime string via AppMessage provided by config page'
+      case 255: strftime_format = settings.strftime_format; break;
+      }
+
+      // apply our (non-localized) strftime format
+      strftime(date_text, sizeof(date_text), strftime_format, currentTime);  // DD.MM.YYYY
       snprintf(date_string, sizeof(date_string), "%s", date_text); // straight copy
     }
-    // dd/mm/yyyy
-    // yyyy.mm.dd
-    // yyyy mm dd
-    // yyyy/mm/dd
-    // YYYY MM DD
-    // YYYY-MM-DD
-    // D MMMM YYYY
-    // yyyy-mm-dd
-    // d.m.yyyy
 
     text_layer_set_text(date_layer, date_string);
 }
@@ -993,6 +1078,7 @@ void in_timezone_handler(DictionaryIterator *received, void *context) {
     Tuple *tz_offset = dict_find(received, AK_TIMEZONE_OFFSET);
     if (tz_offset != NULL) {
       timezone_offset = tz_offset->value->int8;
+      update_datetime_subtext();
     }
   if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Timezone received: %d", timezone_offset); }
 }
@@ -1101,16 +1187,16 @@ void in_configuration_handler(DictionaryIterator *received, void *context) {
     // begin translations...
     Tuple *translation;
 
-    // AK_TRANS_ABBR_*DAY == abbrDaysOfWeek // localized Su Mo Tu We Th Fr Sa
+    // AK_TRANS_ABBR_*DAY == abbrDaysOfWeek // localized Su Mo Tu We Th Fr Sa, max 2 characters
     for (int i = AK_TRANS_ABBR_SUNDAY; i <= AK_TRANS_ABBR_SATURDAY; i++ ) {
       translation = dict_find(received, i);
       if (translation != NULL) {
         if (TRANSLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "translation for key %d is %s", i, translation->value->cstring); }
-        strncpy(lang_datetime.abbrDaysOfWeek[i - AK_TRANS_ABBR_SUNDAY], translation->value->cstring, sizeof(lang_datetime.abbrDaysOfWeek[i - AK_TRANS_ABBR_SUNDAY])-1);
+        strncpy(lang_gen.abbrDaysOfWeek[i - AK_TRANS_ABBR_SUNDAY], translation->value->cstring, sizeof(lang_gen.abbrDaysOfWeek[i - AK_TRANS_ABBR_SUNDAY])-1);
       }
     }
 
-    // AK_TRANS_*DAY == daysOfWeek // localized Sunday through Saturday, max ~11 characters
+    // AK_TRANS_*DAY == daysOfWeek // localized Sunday through Saturday, max 12 characters
     for (int i = AK_TRANS_SUNDAY; i <= AK_TRANS_SATURDAY; i++ ) {
       translation = dict_find(received, i);
       if (translation != NULL) {
@@ -1119,7 +1205,16 @@ void in_configuration_handler(DictionaryIterator *received, void *context) {
       }
     }
 
-    // AK_TEXT_MONTH == monthsOfYear // localized month names, max ~9 characters ('September' == practical display limit)
+    // AK_TRANS_ABBR_*MONTH == monthsOfYear // localized month name abbreviations, max 3 characters
+    for (int i = AK_TRANS_ABBR_JANUARY; i <= AK_TRANS_ABBR_DECEMBER; i++ ) {
+      translation = dict_find(received, i);
+      if (translation != NULL) {
+        if (TRANSLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "translation for key %d is %s", i, translation->value->cstring); }
+        strncpy(lang_gen.abbrMonthsNames[i - AK_TRANS_ABBR_JANUARY], translation->value->cstring, sizeof(lang_gen.abbrMonthsNames[i - AK_TRANS_ABBR_JANUARY])-1);
+      }
+    }
+
+    // AK_TRANS_*MONTH == monthsOfYear // localized month names, max 12 characters
     for (int i = AK_TRANS_JANUARY; i <= AK_TRANS_DECEMBER; i++ ) {
       translation = dict_find(received, i);
       if (translation != NULL) {
@@ -1128,7 +1223,7 @@ void in_configuration_handler(DictionaryIterator *received, void *context) {
       }
     }
 
-    // AK_TRANS_CONNECTED / AK_TRANS_DISCONNECTED == status text, e.g. "Linked" "NOLINK"
+    // AK_TRANS_CONNECTED / AK_TRANS_DISCONNECTED == status text, e.g. "Linked" "NOLINK", max 9 characters
     for (int i = AK_TRANS_CONNECTED; i <= AK_TRANS_DISCONNECTED; i++ ) {
       translation = dict_find(received, i);
       if (translation != NULL) {
@@ -1140,7 +1235,7 @@ void in_configuration_handler(DictionaryIterator *received, void *context) {
     update_connection();
     vibe_suppression = false;
 
-    // AK_TRANS_TIME_AM / AK_TRANS_TIME_PM == AM / PM text, e.g. "AM" "PM" :)
+    // AK_TRANS_TIME_AM / AK_TRANS_TIME_PM == AM / PM text, e.g. "AM" "PM" :), max 6 characters
     for (int i = AK_TRANS_TIME_AM; i <= AK_TRANS_TIME_PM; i++ ) {
       translation = dict_find(received, i);
       if (translation != NULL) {
