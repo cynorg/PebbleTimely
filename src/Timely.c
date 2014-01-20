@@ -47,11 +47,13 @@ static uint8_t sent_battery_percent = 10;
 static bool sent_battery_charging = false;
 static bool sent_battery_plugged = false;
 AppTimer *battery_sending = NULL;
+AppTimer *timezone_request = NULL;
 // connected info
 static bool bluetooth_connected = false;
 // suppress vibration
 static bool vibe_suppression = true;
-static int8_t timezone_offset = 0;
+#define TIMEZONE_UNINITIALIZED 25
+static int8_t timezone_offset = TIMEZONE_UNINITIALIZED;
 
 // define the persistent storage key(s)
 #define PK_SETTINGS      0
@@ -599,7 +601,9 @@ void update_ampm_text(TextLayer *which_layer) {
 
 void update_timezone_text(TextLayer *which_layer) {
   static char timezone_text[7];
-  if (timezone_offset > 0) {
+  if (timezone_offset == TIMEZONE_UNINITIALIZED) {
+    snprintf(timezone_text, sizeof(timezone_text), "GMT ?");
+  } else if (timezone_offset > 0) {
     snprintf(timezone_text, sizeof(timezone_text), "GMT-%d", timezone_offset);
   } else {
     snprintf(timezone_text, sizeof(timezone_text), "GMT+%d", abs(timezone_offset));
@@ -730,7 +734,7 @@ void battery_layer_update_callback(Layer *me, GContext* ctx) {
                                 STAT_BATT_NIB_HEIGHT));
 }
 
-static void request_timezone() {
+static void request_timezone(void *data) {
   DictionaryIterator *iter;
   AppMessageResult result = app_message_outbox_begin(&iter);
   if (iter == NULL) {
@@ -741,6 +745,7 @@ static void request_timezone() {
     return;
   }
   app_message_outbox_send();
+  timezone_request = NULL;
 }
 
 static void battery_status_send(void *data) {
@@ -883,6 +888,10 @@ void update_connection() {
 static void handle_bluetooth(bool connected) {
   bluetooth_connected = connected;
   update_connection();
+  if ( (timezone_request == NULL) & (timezone_offset == TIMEZONE_UNINITIALIZED) ) {
+    timezone_request = app_timer_register(5000, &request_timezone, NULL); // give it time to settle...
+    if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "timezone request timer queued"); }
+  }
 }
 
 static void window_load(Window *window) {
@@ -1057,7 +1066,7 @@ void handle_minute_tick(struct tm *tick_time, TimeUnits units_changed)
   }
 
   if (units_changed & HOUR_UNIT) {
-    request_timezone();
+    request_timezone(NULL);
     update_datetime_subtext();
     if (settings.vibe_hour) {
       generate_vibe(settings.vibe_hour);
@@ -1335,7 +1344,7 @@ static void init(void) {
     persist_read_data(PK_LANG_DATETIME, &lang_datetime, sizeof(lang_datetime) );
   }
 
-  request_timezone();
+  request_timezone(NULL);
 
   window = window_create();
   window_set_window_handlers(window, (WindowHandlers) {
