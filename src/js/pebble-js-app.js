@@ -19,7 +19,7 @@ var datetime = "Date: " + currentdate.getDate() + "/"
                 + currentdate.getSeconds();
 console.log(datetime);
 */
-    // TODO - actually store these in localStorage along with a date object in some useful manner
+    // TO BE DONE - actually store these in localStorage along with a date object in some useful manner
 }
 
 function sendTimezoneToWatch() {
