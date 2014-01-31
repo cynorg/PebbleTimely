@@ -52,7 +52,7 @@ AppTimer *timezone_request = NULL;
 static bool bluetooth_connected = false;
 // suppress vibration
 static bool vibe_suppression = true;
-#define TIMEZONE_UNINITIALIZED 25
+#define TIMEZONE_UNINITIALIZED 80
 static int8_t timezone_offset = TIMEZONE_UNINITIALIZED;
 
 // define the persistent storage key(s)
@@ -600,13 +600,28 @@ void update_ampm_text(TextLayer *which_layer) {
 
 
 void update_timezone_text(TextLayer *which_layer) {
-  static char timezone_text[7];
+  static char timezone_text[10];
+  int tz_hours = 0;
+  int tz_mins  = 0;
+  tz_mins  = timezone_offset % 4;
+  tz_hours = (timezone_offset - tz_mins)/ 4;
+  tz_mins  = tz_mins * 15;
   if (timezone_offset == TIMEZONE_UNINITIALIZED) {
-    snprintf(timezone_text, sizeof(timezone_text), "GMT ?");
+    snprintf(timezone_text, sizeof(timezone_text), "UTC ?");
   } else if (timezone_offset > 0) {
-    snprintf(timezone_text, sizeof(timezone_text), "GMT-%d", timezone_offset);
+    if (tz_mins == 0) {
+      //snprintf(timezone_text, sizeof(timezone_text), "UTC-%d:00", tz_hours);
+      snprintf(timezone_text, sizeof(timezone_text), "UTC-%d", tz_hours);
+    } else {
+      snprintf(timezone_text, sizeof(timezone_text), "UTC-%d:%d", tz_hours, tz_mins);
+    }
   } else {
-    snprintf(timezone_text, sizeof(timezone_text), "GMT+%d", abs(timezone_offset));
+    if (tz_mins == 0) {
+      //snprintf(timezone_text, sizeof(timezone_text), "UTC+%d:00", abs(tz_hours));
+      snprintf(timezone_text, sizeof(timezone_text), "UTC+%d", abs(tz_hours));
+    } else {
+      snprintf(timezone_text, sizeof(timezone_text), "UTC+%d:%d", abs(tz_hours), abs(tz_mins));
+    }
   }
   text_layer_set_text(which_layer, timezone_text);
 }

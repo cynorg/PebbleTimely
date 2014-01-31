@@ -23,11 +23,11 @@ console.log(datetime);
 }
 
 function sendTimezoneToWatch() {
-    var offsetHours = new Date().getTimezoneOffset() / 60;
-    // 5 means GMT-5, -5 means GMT+5 ... -12 through +14 are the valid options
-    Pebble.sendAppMessage({ message_type: 103, timezone_offset: offsetHours },
+    var offsetQuarterHours = Math.floor(new Date().getTimezoneOffset() / 15);
+    // UTC offset in quarter hours ... 48 (UTC-12) through -56 (UTC+14) are the valid ranges
+    Pebble.sendAppMessage({ message_type: 103, timezone_offset: offsetQuarterHours },
         function (e) {
-            console.log("Sent TZ message (" + offsetHours + ") with transactionId=" + e.data.transactionId);
+            console.log("Sent TZ message (" + offsetQuarterHours + ") with transactionId=" + e.data.transactionId);
         },
         function (e) {
             console.log("Unable to deliver TZ message with transactionId=" + e.data.transactionId + " Error is: " + e.data.error.message);
