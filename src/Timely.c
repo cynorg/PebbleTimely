@@ -54,6 +54,7 @@ static bool bluetooth_connected = false;
 static bool vibe_suppression = true;
 #define TIMEZONE_UNINITIALIZED 80
 static int8_t timezone_offset = TIMEZONE_UNINITIALIZED;
+struct tm *currentTime;
 
 // define the persistent storage key(s)
 #define PK_SETTINGS      0
@@ -269,7 +270,6 @@ void setInvColors(GContext* ctx) {
 
 void calendar_layer_update_callback(Layer *me, GContext* ctx) {
     (void)me;
-    struct tm *currentTime = get_time();
 
     int mon = currentTime->tm_mon;
     int year = currentTime->tm_year + 1900;
@@ -420,7 +420,6 @@ void calendar_layer_update_callback(Layer *me, GContext* ctx) {
 }
 
 void update_date_text() {
-    struct tm *currentTime = get_time();
 
     // TODO - 18 @ this font is approaching the max width, localization may require smaller fonts, or no year...
     //September 11, 2013 => 18 chars
@@ -546,8 +545,6 @@ void update_time_text() {
     time_format = "%I:%M";
   }
 
-  struct tm *currentTime = get_time();
-
   strftime(time_text, sizeof(time_text), time_format, currentTime);
 
   // Kludge to handle lack of non-padded hour format string
@@ -563,17 +560,14 @@ void update_time_text() {
 }
 
 void update_day_text(TextLayer *which_layer) {
-  struct tm *currentTime = get_time();
   text_layer_set_text(which_layer, lang_datetime.DaysOfWeek[currentTime->tm_wday]);
 }
 
 void update_month_text(TextLayer *which_layer) {
-  struct tm *currentTime = get_time();
   text_layer_set_text(which_layer, lang_datetime.monthsNames[currentTime->tm_mon]);
 }
 
 void update_week_text(TextLayer *which_layer) {
-  struct tm *currentTime = get_time();
   static char week_text[] = "W00";
   if (settings.week_format == 0) {
     // ISO 8601 week number (00-53)
@@ -589,7 +583,6 @@ void update_week_text(TextLayer *which_layer) {
 }
 
 void update_ampm_text(TextLayer *which_layer) {
-  struct tm *currentTime = get_time();
 
   if (currentTime->tm_hour < 12 ) {
     text_layer_set_text(which_layer, lang_gen.abbrTime[0]); //  0-11 AM
@@ -1074,6 +1067,7 @@ static void deinit(void) {
 
 void handle_minute_tick(struct tm *tick_time, TimeUnits units_changed)
 {
+  currentTime = tick_time;
   update_time_text();
 
   if (units_changed & MONTH_UNIT) {
@@ -1346,6 +1340,8 @@ static void app_message_init(void) {
 }
 
 static void init(void) {
+
+  currentTime = get_time();
 
   app_message_init();
 
