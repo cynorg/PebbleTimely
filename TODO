@@ -1,20 +1,19 @@
 TODOS:
 
 Watchface
- - more datetime formats []
  - vibration option(s)
   - respect DND period (when exposed in SDK)
   - hourly vibrations period (e.g. 9am - 5pm?)
   New Features
     - display notice if there's a newer version available?
-    - horizontal bar for seconds?
-    - timezone finishing/cleanup
-    - reduce calls to get_time() ?
+    - seconds display
+      - optional, below time
+      - horizontal bar for seconds?
     - Alarm
     - Charge history
       - track battery/charging events in javascript local storage, plot over time w/ history on config page
     - Accelerometer
-      - Acceleromater detection for 'swapping slots'
+      - Accelerometer detection for 'swapping slots'
         - slot: Weather
         - slot: 2nd Timezone clock
         - slot: Barcode(s) (if big enough to scan?)
@@ -31,5 +30,7 @@ HTML configuration page
     - change values based on language
   - embedded rather than hosted?  e.g. https://github.com/bertfreudenberg/PebbleONE/blob/master/wscript
     - not a great idea, with current IOS restrictions...
-  - version clearly displayed @ top
+  - version clearly displayed @ top of config page
     - display notice if there's a newer version available?
+ - expose more datetime formats
+    - I've got nearly 50 pre-canned in the WF, some with localized strings, but no good way to present them to the user...
