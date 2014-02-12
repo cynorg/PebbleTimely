@@ -1,5 +1,5 @@
 #include <pebble.h>
-#define DEBUGLOG 0
+#define DEBUGLOG 1
 #define TRANSLOG 0
 /*
  * If you fork this code and release the resulting app, please be considerate and change all the appropriate values in appinfo.json 
@@ -58,8 +58,10 @@ struct tm *currentTime;
 
 // define the persistent storage key(s)
 #define PK_SETTINGS      0
-#define PK_LANG_GEN      1
-#define PK_LANG_DATETIME 2
+#define PK_LANG_GEN      1 // updated    v10->v11 (utf8)
+#define PK_LANG_DATETIME 2 // deprecated v10->v11 (utf8)
+#define PK_LANG_MONTHS   3
+#define PK_LANG_DAYS     4
 
 // define the appkeys used for appMessages
 #define AK_STYLE_INV     0
@@ -179,22 +181,39 @@ typedef struct persist {
   uint8_t track_battery;          // track battery information
 } __attribute__((__packed__)) persist;
 
-typedef struct persist_datetime_lang { // 247 bytes
+typedef struct DEFUNCT_persist_datetime_lang { // 247 bytes   // deprecated v10->v11 (utf8)
   char monthsNames[12][13];       // 156: 12 characters for each of 12 months
   char DaysOfWeek[7][13];         //  91: 12 characters for each of  7 weekdays
 //                                   247 bytes
-} __attribute__((__packed__)) persist_datetime_lang;
+} __attribute__((__packed__)) DEFUNCT_persist_datetime_lang;
 
-typedef struct persist_general_lang { // 101 bytes
+typedef struct DEFUNCT_persist_general_lang { // 101 bytes   // deprecated v10->v11 (utf8)
   char statuses[2][10];           //  20:  9 characters for each of  2 statuses
-  char abbrTime[2][6];            //  12:  5 characters for each of  2 abbreviations
+  char abbrTime[2][6];            //  24:  5 characters for each of  2 abbreviations
   char abbrDaysOfWeek[7][3];      //  21:  2 characters for each of  7 weekdays abbreviations
   char abbrMonthsNames[12][4];    //  48:  3 characters for each of 12 months abbreviations
 //                                   101 bytes
+} __attribute__((__packed__)) DEFUNCT_persist_general_lang;
+typedef struct persist_months_lang { // 252 bytes
+  char monthsNames[12][21];       // 252: 10-20 UTF8 characters for each of 12 months
+//                                   252 bytes
+} __attribute__((__packed__)) persist_months_lang;
+
+typedef struct persist_days_lang { // 182 bytes
+  char DaysOfWeek[7][26];         //  182: 12-25 UTF8 characters for each of 7 weekdays
+//                                   182 bytes
+} __attribute__((__packed__)) persist_days_lang;
+
+typedef struct persist_general_lang { // 202 bytes
+  char statuses[2][20];           //  40:  9 characters for each of  2 statuses
+  char abbrTime[2][12];           //  24:  5 characters for each of  2 abbreviations
+  char abbrDaysOfWeek[7][6];      //  42:  2 characters for each of  7 weekdays abbreviations
+  char abbrMonthsNames[12][8];    //  96:  3 characters for each of 12 months abbreviations
+//                                   202 bytes
 } __attribute__((__packed__)) persist_general_lang;
 
 persist settings = {
-  .version    = 10,
+  .version    = 11,
   .inverted   = 0, // no, dark
   .day_invert = 1, // yes
   .grid       = 1, // yes
@@ -211,8 +230,14 @@ persist settings = {
   .track_battery = 0, // no battery tracking by default
 };
 
-persist_datetime_lang lang_datetime = {
+/*
+*/
+
+persist_months_lang lang_months = {
   .monthsNames = { "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" },
+};
+
+persist_days_lang lang_days = {
   .DaysOfWeek = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" },
 };
 
@@ -435,11 +460,11 @@ void update_date_text() {
       switch ( settings.date_format ) {
       case 0: // MMMM DD, YYYY (localized)
         strftime(date_text, sizeof(date_text), "%d, %Y", currentTime); // DD, YYYY
-        snprintf(date_string, sizeof(date_string), "%s %s", lang_datetime.monthsNames[currentTime->tm_mon], date_text); // prefix Month
+        snprintf(date_string, sizeof(date_string), "%s %s", lang_months.monthsNames[currentTime->tm_mon], date_text); // prefix Month
         break;
       case 1: // MMMM DD, 'YY (localized)
         strftime(date_text, sizeof(date_text), "%d, '%y", currentTime); // DD, 'YY
-        snprintf(date_string, sizeof(date_string), "%s %s", lang_datetime.monthsNames[currentTime->tm_mon], date_text); // prefix Month
+        snprintf(date_string, sizeof(date_string), "%s %s", lang_months.monthsNames[currentTime->tm_mon], date_text); // prefix Month
         break;
       case 2: // Mmm DD, YYYY (localized)
         strftime(date_text, sizeof(date_text), "%d, %Y", currentTime); // DD, YYYY
@@ -452,12 +477,12 @@ void update_date_text() {
       case 11: // D MMMM YYYY (localized)
         strftime(date_text, sizeof(date_text), "%d", currentTime); // D
         strftime(date_text_2, sizeof(date_text_2), "%Y", currentTime); // YYYY
-        snprintf(date_string, sizeof(date_string), "%s %s %s", date_text_2, lang_datetime.monthsNames[currentTime->tm_mon], date_text); // insert Month
+        snprintf(date_string, sizeof(date_string), "%s %s %s", date_text_2, lang_months.monthsNames[currentTime->tm_mon], date_text); // insert Month
         break;
       case 12: // D MMMM 'YY (localized)
         strftime(date_text, sizeof(date_text), "%d", currentTime); // D
         strftime(date_text_2, sizeof(date_text_2), "'%y", currentTime); // YY
-        snprintf(date_string, sizeof(date_string), "%s %s %s", date_text_2, lang_datetime.monthsNames[currentTime->tm_mon], date_text); // insert Month
+        snprintf(date_string, sizeof(date_string), "%s %s %s", date_text_2, lang_months.monthsNames[currentTime->tm_mon], date_text); // insert Month
         break;
       case 13: // D Mmm YYYY (localized)
         strftime(date_text, sizeof(date_text), "%d", currentTime); // D
@@ -560,11 +585,11 @@ void update_time_text() {
 }
 
 void update_day_text(TextLayer *which_layer) {
-  text_layer_set_text(which_layer, lang_datetime.DaysOfWeek[currentTime->tm_wday]);
+  text_layer_set_text(which_layer, lang_days.DaysOfWeek[currentTime->tm_wday]);
 }
 
 void update_month_text(TextLayer *which_layer) {
-  text_layer_set_text(which_layer, lang_datetime.monthsNames[currentTime->tm_mon]);
+  text_layer_set_text(which_layer, lang_months.monthsNames[currentTime->tm_mon]);
 }
 
 void update_week_text(TextLayer *which_layer) {
@@ -1234,7 +1259,7 @@ void in_configuration_handler(DictionaryIterator *received, void *context) {
       translation = dict_find(received, i);
       if (translation != NULL) {
         if (TRANSLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "translation for key %d is %s", i, translation->value->cstring); }
-        strncpy(lang_datetime.DaysOfWeek[i - AK_TRANS_SUNDAY], translation->value->cstring, sizeof(lang_datetime.DaysOfWeek[i - AK_TRANS_SUNDAY])-1);
+        strncpy(lang_days.DaysOfWeek[i - AK_TRANS_SUNDAY], translation->value->cstring, sizeof(lang_days.DaysOfWeek[i - AK_TRANS_SUNDAY])-1);
       }
     }
 
@@ -1252,7 +1277,7 @@ void in_configuration_handler(DictionaryIterator *received, void *context) {
       translation = dict_find(received, i);
       if (translation != NULL) {
         if (TRANSLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "translation for key %d is %s", i, translation->value->cstring); }
-        strncpy(lang_datetime.monthsNames[i - AK_TRANS_JANUARY], translation->value->cstring, sizeof(lang_datetime.monthsNames[i - AK_TRANS_JANUARY])-1);
+        strncpy(lang_months.monthsNames[i - AK_TRANS_JANUARY], translation->value->cstring, sizeof(lang_months.monthsNames[i - AK_TRANS_JANUARY])-1);
       }
     }
 
@@ -1284,8 +1309,10 @@ void in_configuration_handler(DictionaryIterator *received, void *context) {
     if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Wrote %d bytes into settings", result); }
     result = persist_write_data(PK_LANG_GEN, &lang_gen, sizeof(lang_gen) );
     if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Wrote %d bytes into lang_gen", result); }
-    result = persist_write_data(PK_LANG_DATETIME, &lang_datetime, sizeof(lang_datetime) );
-    if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Wrote %d bytes into lang_datetime", result); }
+    result = persist_write_data(PK_LANG_MONTHS, &lang_months, sizeof(lang_months) );
+    if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Wrote %d bytes into lang_months", result); }
+    result = persist_write_data(PK_LANG_DAYS, &lang_days, sizeof(lang_days) );
+    if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Wrote %d bytes into lang_days", result); }
 
     // ==== Implemented SDK ====
     // Battery
@@ -1346,13 +1373,67 @@ static void init(void) {
   app_message_init();
 
   if (persist_exists(PK_SETTINGS)) {
+    int result = 0;
     persist_read_data(PK_SETTINGS, &settings, sizeof(settings) );
-  }
-  if (persist_exists(PK_LANG_GEN)) {
-    persist_read_data(PK_LANG_GEN, &lang_gen, sizeof(lang_gen) );
-  }
-  if (persist_exists(PK_LANG_DATETIME)) {
-    persist_read_data(PK_LANG_DATETIME, &lang_datetime, sizeof(lang_datetime) );
+    if (settings.version == 10) { // v10 -> v11 upgrades
+      if (persist_exists(PK_LANG_DATETIME)) {
+        DEFUNCT_persist_datetime_lang lang_datetime = {   // deprecated v10->v11 (utf8)
+          .monthsNames = { "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" },
+          .DaysOfWeek = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" },
+        };
+        persist_read_data(PK_LANG_DATETIME, &lang_datetime, sizeof(lang_datetime) );
+        // split char arrays out into individual new UTF8-sized PKs
+        for (int i = AK_TRANS_JANUARY; i <= AK_TRANS_DECEMBER; i++ ) {
+          strncpy(lang_months.monthsNames[i - AK_TRANS_JANUARY], lang_datetime.monthsNames[i - AK_TRANS_JANUARY], sizeof(lang_datetime.monthsNames[i - AK_TRANS_JANUARY])-1);
+        }
+        result = persist_write_data(PK_LANG_MONTHS, &lang_months, sizeof(lang_months) );
+        if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Upgraded structures, v10->v11, wrote %d bytes into lang_months", result); }
+        for (int i = AK_TRANS_SUNDAY; i <= AK_TRANS_SATURDAY; i++ ) {
+            strncpy(lang_days.DaysOfWeek[i - AK_TRANS_SUNDAY], lang_datetime.DaysOfWeek[i - AK_TRANS_SUNDAY], sizeof(lang_datetime.DaysOfWeek[i - AK_TRANS_SUNDAY])-1);
+        }
+        result = persist_write_data(PK_LANG_DAYS, &lang_days, sizeof(lang_days) );
+        if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Upgraded structures, v10->v11, wrote %d bytes into lang_days", result); }
+        result = persist_delete(PK_LANG_DATETIME);
+        if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Upgraded structures, v10->v11, %d - deleted PK for lang_datetime", result); }
+      }
+
+      DEFUNCT_persist_general_lang old_lang_gen = {   // deprecated v10->v11 (utf8)
+        .statuses = { "Linked", "NOLINK" },
+        .abbrTime = { "AM", "PM" },
+        .abbrDaysOfWeek = { "Su", "Mo", "Tu", "We", "Th", "Fr", "Sa" },
+        .abbrMonthsNames = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" },
+      };
+      persist_read_data(PK_LANG_GEN, &old_lang_gen, sizeof(old_lang_gen) );
+
+      for (int i = AK_TRANS_CONNECTED; i <= AK_TRANS_DISCONNECTED; i++ ) {
+        strncpy(lang_gen.statuses[i - AK_TRANS_CONNECTED], old_lang_gen.statuses[i - AK_TRANS_CONNECTED], sizeof(old_lang_gen.statuses[i - AK_TRANS_CONNECTED])-1);
+      }
+      for (int i = AK_TRANS_TIME_AM; i <= AK_TRANS_TIME_PM; i++ ) {
+        strncpy(lang_gen.abbrTime[i - AK_TRANS_TIME_AM], old_lang_gen.abbrTime[i - AK_TRANS_TIME_AM], sizeof(old_lang_gen.abbrTime[i - AK_TRANS_TIME_AM])-1);
+      }
+      for (int i = AK_TRANS_ABBR_SUNDAY; i <= AK_TRANS_ABBR_SATURDAY; i++ ) {
+        strncpy(lang_gen.abbrDaysOfWeek[i - AK_TRANS_ABBR_SUNDAY], old_lang_gen.abbrDaysOfWeek[i - AK_TRANS_ABBR_SUNDAY], sizeof(old_lang_gen.abbrDaysOfWeek[i - AK_TRANS_ABBR_SUNDAY])-1);
+      }
+      for (int i = AK_TRANS_ABBR_JANUARY; i <= AK_TRANS_ABBR_DECEMBER; i++ ) {
+        strncpy(lang_gen.abbrMonthsNames[i - AK_TRANS_ABBR_JANUARY], old_lang_gen.abbrMonthsNames[i - AK_TRANS_ABBR_JANUARY], sizeof(old_lang_gen.abbrMonthsNames[i - AK_TRANS_ABBR_JANUARY])-1);
+      }
+      result = persist_write_data(PK_LANG_GEN, &lang_gen, sizeof(lang_gen) );
+      if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Upgraded structures, v10->v11, wrote %d bytes into lang_gen", result); }
+
+      // blindly assume success and update our version - if it failed, then defaults will be loaded anyway...
+      settings.version = 11;
+      result = persist_write_data(PK_SETTINGS, &settings, sizeof(settings) );
+      if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Upgraded structures, v10->v11, wrote %d bytes into settings", result); }
+    }
+    if (persist_exists(PK_LANG_GEN)) {
+      persist_read_data(PK_LANG_GEN, &lang_gen, sizeof(lang_gen) );
+    }
+    if (persist_exists(PK_LANG_MONTHS)) {
+      persist_read_data(PK_LANG_MONTHS, &lang_months, sizeof(lang_months) );
+    }
+    if (persist_exists(PK_LANG_DAYS)) {
+      persist_read_data(PK_LANG_DAYS, &lang_days, sizeof(lang_days) );
+    }
   }
 
   request_timezone(NULL);
