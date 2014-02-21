@@ -766,6 +766,17 @@ void process_show_ampm() { // RIGHT
   }
 }
 
+void position_connection_layer() {
+  int connection_vert_offset = 0;
+  // potentially adjust the connection position, depending on language/font
+  if ( strcmp(lang_gen.language,"EN") == 0 ) { // Standard font
+    connection_vert_offset = 0;
+  } else if ( strcmp(lang_gen.language,"RU") == 0 ) { // Unicode font w/ Cyrillic characters
+    connection_vert_offset = 2;
+  }
+  layer_set_frame( text_layer_get_layer(text_connection_layer), GRect(20+STAT_BT_ICON_LEFT, connection_vert_offset, 72, 22) );
+}
+
 void position_date_layer() {
   int date_vert_offset = 0;
   // potentially adjust the date position, depending on language/font
@@ -1141,12 +1152,13 @@ static void window_load(Window *window) {
 
   update_datetime_subtext();
 
-  text_connection_layer = text_layer_create( GRect(20+STAT_BT_ICON_LEFT, 0, 72, 22) );
+  text_connection_layer = text_layer_create( GRect(20+STAT_BT_ICON_LEFT, 0, 72, 22) ); // see position_connection_layer()
   text_layer_set_text_color(text_connection_layer, GColorWhite);
   text_layer_set_background_color(text_connection_layer, GColorClear);
   text_layer_set_font(text_connection_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18));
   text_layer_set_text_alignment(text_connection_layer, GTextAlignmentLeft);
   text_layer_set_text(text_connection_layer, "NO LINK");
+  position_connection_layer(); // depends on font/language
   layer_add_child(statusbar, text_layer_get_layer(text_connection_layer));
 
   text_battery_layer = text_layer_create( GRect(STAT_BATT_LEFT, STAT_BATT_TOP-2, STAT_BATT_WIDTH, STAT_BATT_HEIGHT) );
@@ -1190,6 +1202,7 @@ static void window_unload(Window *window) {
   layer_destroy(calendar_layer);
   layer_destroy(datetime_layer);
   layer_destroy(battery_layer);
+  // TODO - unload custom fonts...
   layer_remove_from_parent(bitmap_layer_get_layer(bmp_charging_layer));
   layer_remove_from_parent(bitmap_layer_get_layer(bmp_connection_layer));
   bitmap_layer_destroy(bmp_charging_layer);
