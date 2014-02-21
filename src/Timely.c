@@ -1,5 +1,5 @@
 #include <pebble.h>
-#define DEBUGLOG 1
+#define DEBUGLOG 0
 #define TRANSLOG 0
 /*
  * If you fork this code and release the resulting app, please be considerate and change all the appropriate values in appinfo.json 
@@ -26,6 +26,12 @@ static Layer *calendar_layer;
 static Layer *statusbar;
 static Layer *slot_top;
 static Layer *slot_bot;
+static GFont unifont_14;
+static GFont unifont_18;
+static GFont unifont_18_bold;
+static GFont unifont_24;
+static GFont cal_normal;
+static GFont cal_bold;
 
 static BitmapLayer *bmp_connection_layer;
 static GBitmap *image_connection_icon;
@@ -77,8 +83,9 @@ struct tm *currentTime;
 #define AK_VERSION       10 // UNUSED
 #define AK_VIBE_PAT_DISCONNECT   11
 #define AK_VIBE_PAT_CONNECT      12
-#define AK_STRFTIME_FORMAT       13
-#define AK_TRACK_BATTERY         14
+#define AK_STRFTIME_FORMAT       13 // not implemented in config page, yet...
+#define AK_TRACK_BATTERY         14 // UNUSED
+#define AK_LANGUAGE              15
 
 #define AK_MESSAGE_TYPE          99
 #define AK_SEND_BATT_PERCENT    100
@@ -150,7 +157,7 @@ struct tm *currentTime;
 
 // relative coordinates (relative to SLOTs)
 #define REL_CLOCK_DATE_LEFT       0
-#define REL_CLOCK_DATE_TOP       -9
+#define REL_CLOCK_DATE_TOP        -9 // UNIPOS 0
 #define REL_CLOCK_DATE_HEIGHT    30 // date/time overlap, due to the way text is 'positioned'
 #define REL_CLOCK_TIME_LEFT       0
 #define REL_CLOCK_TIME_TOP        7
@@ -204,12 +211,13 @@ typedef struct persist_days_lang { // 182 bytes
 //                                   182 bytes
 } __attribute__((__packed__)) persist_days_lang;
 
-typedef struct persist_general_lang { // 202 bytes
+typedef struct persist_general_lang { // 205 bytes
   char statuses[2][20];           //  40:  9 characters for each of  2 statuses
   char abbrTime[2][12];           //  24:  5 characters for each of  2 abbreviations
   char abbrDaysOfWeek[7][6];      //  42:  2 characters for each of  7 weekdays abbreviations
   char abbrMonthsNames[12][8];    //  96:  3 characters for each of 12 months abbreviations
-//                                   202 bytes
+  char language[3];               //   3:  2 characters for language (internal, stored as ascii for convenience)
+//                                   205 bytes
 } __attribute__((__packed__)) persist_general_lang;
 
 persist settings = {
@@ -220,9 +228,9 @@ persist settings = {
   .vibe_hour  = 0, // no
   .dayOfWeekOffset = 0, // 0 - 6, Sun - Sat
   .date_format = 0, // Month DD, YYYY
-  .show_am_pm  = 0, // no AM/PM       [0:Hide, 1:AM/PM, 2:TZ,    3:Week]
-  .show_day    = 0, // no day name    [0:Hide, 1:Day,   2:Month, 3:TZ, 4:Week, 5:AM/PM]
-  .show_week   = 0, // no week number [0:Hide, 1:Week,  2:TZ,    3:AM/PM
+  .show_am_pm  = 0, // no AM/PM       [0:Hide, 1:AM/PM, 2:TZ,    3:Week,  4:DoY,  5:DLiY,   6:Seconds]
+  .show_day    = 0, // no day name    [0:Hide, 1:Day,   2:Month, 3:TZ,    4:Week, 5:AM/PM   6:DoY/DLiY]
+  .show_week   = 0, // no week number [0:Hide, 1:Week,  2:TZ,    3:AM/PM, 4:DoY,  5:DLiY,   6:Seconds]
   .week_format = 0, // ISO 8601
   .vibe_pat_disconnect = 2, // double vibe
   .vibe_pat_connect = 0, // no vibe
@@ -246,6 +254,7 @@ persist_general_lang lang_gen = {
   .abbrTime = { "AM", "PM" },
   .abbrDaysOfWeek = { "Su", "Mo", "Tu", "We", "Th", "Fr", "Sa" },
   .abbrMonthsNames = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" },
+  .language = "EN",
 };
 
 // How many days are/were in the month
@@ -384,9 +393,7 @@ void calendar_layer_update_callback(Layer *me, GContext* ctx) {
     if (!show_last) { weeks--; }
     if (!show_next) { weeks--; }
         
-    GFont normal = fonts_get_system_font(FONT_KEY_GOTHIC_14); // fh = 16
-    GFont bold   = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD); // fh = 22
-    GFont current = normal;
+    GFont current = cal_normal;
     int font_vert_offset = 0;
 
     // generate a light background for the calendar grid
@@ -400,8 +407,8 @@ void calendar_layer_update_callback(Layer *me, GContext* ctx) {
       if (weekday > 6) { weekday -= 7; }
 
       if (col == specialDay) {
-        current = bold;
-        font_vert_offset = -3;
+        current = cal_bold;
+        font_vert_offset = -3; // UNIPOS -2
       }
       // draw the cell background
       graphics_fill_rect(ctx, GRect (CAL_WIDTH * col + CAL_LEFT + CAL_GAP, 0, CAL_WIDTH - CAL_GAP, CAL_HEIGHT - CAL_GAP), 0, GCornerNone);
@@ -409,10 +416,14 @@ void calendar_layer_update_callback(Layer *me, GContext* ctx) {
       // draw the cell text
       graphics_draw_text(ctx, lang_gen.abbrDaysOfWeek[weekday], current, GRect(CAL_WIDTH * col + CAL_LEFT + CAL_GAP, CAL_GAP + font_vert_offset, CAL_WIDTH, CAL_HEIGHT), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL); 
       if (col == specialDay) {
-        current = normal;
+        current = cal_normal;
         font_vert_offset = 0;
       }
     }
+
+    GFont normal = fonts_get_system_font(FONT_KEY_GOTHIC_14); // fh = 16
+    GFont bold   = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD); // fh = 22
+    current = normal;
 
     // draw the individual calendar rows/columns
     int week = 0;
@@ -423,7 +434,7 @@ void calendar_layer_update_callback(Layer *me, GContext* ctx) {
       for (int col = 0; col < CAL_DAYS; col++) {
         if ( row == 2 && col == specialDay) {
           setInvColors(ctx);
-          current = bold;
+          current = cal_bold;
           font_vert_offset = -3;
         }
 
@@ -437,7 +448,7 @@ void calendar_layer_update_callback(Layer *me, GContext* ctx) {
 
         if ( row == 2 && col == specialDay) {
           setColors(ctx);
-          current = normal;
+          current = cal_normal;
           font_vert_offset = 0;
         }
       }
@@ -608,7 +619,6 @@ void update_week_text(TextLayer *which_layer) {
 }
 
 void update_ampm_text(TextLayer *which_layer) {
-
   if (currentTime->tm_hour < 12 ) {
     text_layer_set_text(which_layer, lang_gen.abbrTime[0]); //  0-11 AM
   } else {
@@ -616,6 +626,36 @@ void update_ampm_text(TextLayer *which_layer) {
   }
 }
 
+char * get_doy_text() {
+  static char doy_text[] = "D000";
+  strftime(doy_text, sizeof(doy_text), "D%j", currentTime);
+  return doy_text;
+}
+
+char * get_dliy_text() {
+  static char dliy_text[] = "R000";
+  int daysThisFeb = daysInMonth(currentTime->tm_mon, currentTime->tm_year + 1900);
+  int daysThisYear = 365;
+  if (daysThisFeb == 29) { daysThisYear = 366; }
+  int daysSinceJanFirst = currentTime->tm_yday; // 0-365 inclusive
+  int daysLeftThisYear = daysThisYear - daysSinceJanFirst - 1;
+  snprintf(dliy_text, sizeof(dliy_text), "R%03d", daysLeftThisYear);
+  return dliy_text;
+}
+
+void update_doy_text(TextLayer *which_layer) {
+  text_layer_set_text(which_layer, get_doy_text());
+}
+
+void update_dliy_text(TextLayer *which_layer) {
+  text_layer_set_text(which_layer, get_dliy_text());
+}
+
+void update_doy_dliy_text(TextLayer *which_layer) {
+  static char doy_dliy_text[] = "D000/R000";
+  snprintf(doy_dliy_text, sizeof(doy_dliy_text), "%s/%s", get_doy_text(), get_dliy_text());
+  text_layer_set_text(which_layer, doy_dliy_text);
+}
 
 void update_timezone_text(TextLayer *which_layer) {
   static char timezone_text[10];
@@ -644,7 +684,7 @@ void update_timezone_text(TextLayer *which_layer) {
   text_layer_set_text(which_layer, timezone_text);
 }
 
-void process_show_week() {
+void process_show_week() { // LEFT
   switch ( settings.show_week ) {
   case 0: // Hide
     //layer_set_hidden(text_layer_get_layer(week_layer), true);
@@ -658,10 +698,19 @@ void process_show_week() {
   case 3: // Show AM/PM
     update_ampm_text(week_layer);
     break;
+  case 4: // Show Day of Year
+    update_doy_text(week_layer);
+    break;
+  case 5: // Show Days Left in Year
+    update_dliy_text(week_layer);
+    break;
+  case 6: // Show Seconds
+//    update_seconds_text(week_layer);
+    break;
   }
 }
 
-void process_show_day() {
+void process_show_day() { // MIDDLE
   switch ( settings.show_day ) {
   case 0: // Hide
     //layer_set_hidden(text_layer_get_layer(day_layer), true);
@@ -681,10 +730,13 @@ void process_show_day() {
   case 5: // Show AM/PM
     update_ampm_text(day_layer);
     break;
+  case 6: // Show DoY/DLiY
+    update_doy_dliy_text(day_layer);
+    break;
   }
 }
 
-void process_show_ampm() {
+void process_show_ampm() { // RIGHT
   switch ( settings.show_am_pm ) {
   case 0: // Hide
     //layer_set_hidden(text_layer_get_layer(ampm_layer), true);
@@ -697,6 +749,15 @@ void process_show_ampm() {
     break;
   case 3: // Show Week
     update_week_text(ampm_layer);
+    break;
+  case 4: // Show Day of Year
+    update_doy_text(ampm_layer);
+    break;
+  case 5: // Show Days Left in Year
+    update_dliy_text(ampm_layer);
+    break;
+  case 6: // Show Seconds
+//    update_seconds_text(ampm_layer);
     break;
   }
 }
@@ -927,11 +988,39 @@ static void handle_bluetooth(bool connected) {
   }
 }
 
+static void set_unifont() {
+  if ( strcmp(lang_gen.language,"EN") == 0 ) { // Standard font
+    // set fonts...
+    text_layer_set_font(day_layer,fonts_get_system_font(FONT_KEY_GOTHIC_14));
+    text_layer_set_font(text_connection_layer,fonts_get_system_font(FONT_KEY_GOTHIC_18));
+    text_layer_set_font(date_layer,fonts_get_system_font(FONT_KEY_GOTHIC_24));
+    // set font pointers, for calendar
+    cal_normal = fonts_get_system_font(FONT_KEY_GOTHIC_14); // fh = 16
+    cal_bold   = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD); // fh = 22
+    // set offsets...
+  } else if ( strcmp(lang_gen.language,"RU") == 0 ) { // Unicode font w/ Cyrillic characters
+    // set fonts...
+    text_layer_set_font(day_layer,unifont_14);
+    text_layer_set_font(text_connection_layer, unifont_18);
+    text_layer_set_font(date_layer, unifont_24);
+    // set font pointers, for calendar
+    cal_normal = unifont_14; // fh = 16
+    cal_bold   = unifont_18_bold; // fh = 22 // XXX TODO need a bold unicode/unifont option... maybe invert it or box it or something?
+    // set offsets...
+  }
+}
+
 static void window_load(Window *window) {
+
+  unifont_14 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_UNICODE_FB_16));
+  unifont_18 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_UNICODE_FB_16));
+  unifont_18_bold = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_UNICODE_FB_BOLD_16));
+  unifont_24 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_UNICODE_FB_16));
+  cal_normal = unifont_14;
+  cal_bold   = unifont_18_bold;
 
   Layer *window_layer = window_get_root_layer(window);
   GRect bounds = layer_get_bounds(window_layer);
-
   //statusbar = layer_create(GRect(0,LAYOUT_STAT,DEVICE_WIDTH,LAYOUT_SLOT_TOP));
   statusbar = layer_create(GRect(0,0,DEVICE_WIDTH,DEVICE_HEIGHT));
   layer_set_update_proc(statusbar, statusbar_layer_update_callback);
@@ -1000,7 +1089,7 @@ static void window_load(Window *window) {
     layer_set_hidden(text_layer_get_layer(week_layer), true);
   }
 
-  day_layer = text_layer_create( GRect(28, REL_CLOCK_SUBTEXT_TOP, DEVICE_WIDTH - 56, 16) );
+  day_layer = text_layer_create( GRect(4, REL_CLOCK_SUBTEXT_TOP, 140, 16) );
   text_layer_set_text_color(day_layer, GColorWhite);
   text_layer_set_background_color(day_layer, GColorClear);
   text_layer_set_font(day_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
@@ -1038,6 +1127,8 @@ static void window_load(Window *window) {
   text_layer_set_text(text_battery_layer, "?");
 
   layer_add_child(statusbar, text_layer_get_layer(text_battery_layer));
+
+  set_unifont();
 
   // NOTE: No more adding layers below here - the inverter layers NEED to be the last to be on top!
 
@@ -1233,7 +1324,7 @@ void in_configuration_handler(DictionaryIterator *received, void *context) {
       settings.vibe_pat_connect = VIBE_PAT_C->value->uint8;
     }
 
-    // AK_TRACK_BATTERY == vibe_hour - vibration patterns for hourly vibration
+    // AK_TRACK_BATTERY == whether or not to do battery tracking
     Tuple *track_battery = dict_find(received, AK_TRACK_BATTERY);
     if (track_battery != NULL) {
       settings.track_battery = track_battery->value->uint8;
@@ -1244,6 +1335,14 @@ void in_configuration_handler(DictionaryIterator *received, void *context) {
 
     // begin translations...
     Tuple *translation;
+
+    // AK_LANGUAGE == language, e.g. EN
+    Tuple *chosen_language = dict_find(received, AK_LANGUAGE);
+    if (chosen_language != NULL) {
+      if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Language is set to %s", chosen_language->value->cstring); }
+      strncpy(lang_gen.language, chosen_language->value->cstring, sizeof(lang_gen.language)-1);
+      set_unifont();
+    }
 
     // AK_TRANS_ABBR_*DAY == abbrDaysOfWeek // localized Su Mo Tu We Th Fr Sa, max 2 characters
     for (int i = AK_TRANS_ABBR_SUNDAY; i <= AK_TRANS_ABBR_SATURDAY; i++ ) {

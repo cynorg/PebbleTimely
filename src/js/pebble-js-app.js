@@ -3,8 +3,12 @@ Pebble.addEventListener("ready", function (e) {
 });
 
 Pebble.addEventListener("showConfiguration", function () {
-//    console.log("Configuration window launching...");
-    Pebble.openURL("http://www.cyn.org/pebble/timely/2.1.2.php" + '?pat='+Pebble.getAccountToken()+'_=' + new Date().getTime());
+    console.log("Configuration window launching...");
+    //Pebble.openURL("http://www.cyn.org/pebble/timely/2.1.2a.php" + '?pat='+Pebble.getAccountToken()+'_=' + new Date().getTime());
+    var options = { 'web': { 'lang': 'EN' } }; // TODO
+//    if (window.localStorage.timely_options !== undefined) { options = JSON.parse(window.localStorage.timely_options); }
+    Pebble.openURL("http://www.cyn.org/pebble/timely/2.1.2.php" + '?lang=' + options.web.lang + '&pat=' + Pebble.getAccountToken() + '&_=' + new Date().getTime());
+    //Pebble.openURL("http://www.cyn.org/pebble/timely/2.1.2.php" + '?pat=' + Pebble.getAccountToken() + '&_=' + new Date().getTime());
 });
 
 function saveBatteryValue(e) {
@@ -56,7 +60,11 @@ Pebble.addEventListener("webviewclosed", function (e) {
     //console.log(e.response);
     if (e.response !== undefined) { // user clicked Save/Submit, not Cancel/Done
         var options = JSON.parse(b64_to_utf8(e.response));
-        //console.log("Options = " + JSON.stringify(options));
+        window.localStorage.timely_options = JSON.stringify(options);
+        var web = options.web;
+        delete options.web; // remove the 'web' object from our response, which has preferences such as language...
+        options[15] = web.lang; // re-inject the language
+        console.log("Options = " + JSON.stringify(options));
         Pebble.sendAppMessage(options,
             function (e) {
                 console.log("Successfully delivered message with transactionId=" + e.data.transactionId);

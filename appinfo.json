@@ -1,10 +1,10 @@
 {
   "uuid": "55f7744b-f586-45b8-854c-554f34489f20",
   "shortName": "Timely",
-  "longName": "Timely 2.1b",
+  "longName": "Timely 2.2",
   "companyName": "Martin Norland (@cynorg)",
   "versionCode": 2,
-  "versionLabel": "2.1.2",
+  "versionLabel": "2.2.0",
   "watchapp": {
     "watchface": true
   },
@@ -25,6 +25,7 @@
     "vibe_pat_connect":     12,
     "strftime_format":      13,
     "track_battery":        14,
+    "language":             15,
     "message_type":         99,
     "send_batt_percent":   100,
     "send_batt_charging":  101,
@@ -101,6 +102,30 @@
         "type": "png",
         "name": "IMAGE_HOURVIBE_ICON",
         "file": "images/hourvibe_20_20.png"
+      },
+      {
+        "type": "font",
+        "characterRegex": "[\u0020-\u007e\u0400-\u0451\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u00ff\u2026]",
+        "name": "FONT_UNICODE_FB_14",
+        "file": "fonts/unifont_latest.ttf"
+      },
+      {
+        "type": "font",
+        "characterRegex": "[\u0020-\u007e\u0400-\u0451\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u00ff\u2026]",
+        "name": "FONT_UNICODE_FB_BOLD_16",
+        "file": "fonts/unifont_latest.ttf"
+      },
+      {
+        "type": "font",
+        "characterRegex": "[\u0020-\u007e\u0400-\u0451\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u00ff\u2026]",
+        "name": "FONT_UNICODE_FB_16",
+        "file": "fonts/unifont_latest.ttf"
+      },
+      {
+        "type": "font",
+        "characterRegex": "[\u0020-\u007e\u0400-\u0451\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u00ff\u2026]",
+        "name": "FONT_UNICODE_FB_18",
+        "file": "fonts/unifont_latest.ttf"
       }
     ]
   }
