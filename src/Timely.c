@@ -157,7 +157,7 @@ struct tm *currentTime;
 
 // relative coordinates (relative to SLOTs)
 #define REL_CLOCK_DATE_LEFT       0
-#define REL_CLOCK_DATE_TOP        -9 // UNIPOS 0
+#define REL_CLOCK_DATE_TOP        0
 #define REL_CLOCK_DATE_HEIGHT    30 // date/time overlap, due to the way text is 'positioned'
 #define REL_CLOCK_TIME_LEFT       0
 #define REL_CLOCK_TIME_TOP        7
@@ -395,6 +395,7 @@ void calendar_layer_update_callback(Layer *me, GContext* ctx) {
         
     GFont current = cal_normal;
     int font_vert_offset = 0;
+    if (strcmp(lang_gen.language,"RU") == 0 ) { font_vert_offset = -2; }
 
     // generate a light background for the calendar grid
     setInvColors(ctx);
@@ -408,7 +409,8 @@ void calendar_layer_update_callback(Layer *me, GContext* ctx) {
 
       if (col == specialDay) {
         current = cal_bold;
-        font_vert_offset = -3; // UNIPOS -2
+        font_vert_offset = -3;
+        if (strcmp(lang_gen.language,"RU") == 0 ) { font_vert_offset = -2; }
       }
       // draw the cell background
       graphics_fill_rect(ctx, GRect (CAL_WIDTH * col + CAL_LEFT + CAL_GAP, 0, CAL_WIDTH - CAL_GAP, CAL_HEIGHT - CAL_GAP), 0, GCornerNone);
@@ -418,12 +420,14 @@ void calendar_layer_update_callback(Layer *me, GContext* ctx) {
       if (col == specialDay) {
         current = cal_normal;
         font_vert_offset = 0;
+        if (strcmp(lang_gen.language,"RU") == 0 ) { font_vert_offset = -2; }
       }
     }
 
     GFont normal = fonts_get_system_font(FONT_KEY_GOTHIC_14); // fh = 16
     GFont bold   = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD); // fh = 22
     current = normal;
+    font_vert_offset = 0;
 
     // draw the individual calendar rows/columns
     int week = 0;
@@ -434,7 +438,7 @@ void calendar_layer_update_callback(Layer *me, GContext* ctx) {
       for (int col = 0; col < CAL_DAYS; col++) {
         if ( row == 2 && col == specialDay) {
           setInvColors(ctx);
-          current = cal_bold;
+          current = bold;
           font_vert_offset = -3;
         }
 
@@ -448,7 +452,7 @@ void calendar_layer_update_callback(Layer *me, GContext* ctx) {
 
         if ( row == 2 && col == specialDay) {
           setColors(ctx);
-          current = cal_normal;
+          current = normal;
           font_vert_offset = 0;
         }
       }
@@ -762,6 +766,29 @@ void process_show_ampm() { // RIGHT
   }
 }
 
+void position_date_layer() {
+  int date_vert_offset = 0;
+  // potentially adjust the date position, depending on language/font
+  if ( strcmp(lang_gen.language,"EN") == 0 ) { // Standard font
+    date_vert_offset = -9;
+  } else if ( strcmp(lang_gen.language,"RU") == 0 ) { // Unicode font w/ Cyrillic characters
+    date_vert_offset = -4;
+  }
+  layer_set_frame( text_layer_get_layer(date_layer), GRect(REL_CLOCK_DATE_LEFT, REL_CLOCK_DATE_TOP + date_vert_offset, DEVICE_WIDTH, REL_CLOCK_DATE_HEIGHT) );
+}
+
+void position_day_layer() {
+  // potentially adjust the day position, depending on language/font
+  int day_vert_offset = 0;
+  // potentially adjust the date position, depending on language/font
+  if ( strcmp(lang_gen.language,"EN") == 0 ) { // Standard font
+    day_vert_offset = 0;
+  } else if ( strcmp(lang_gen.language,"RU") == 0 ) { // Unicode font w/ Cyrillic characters
+    day_vert_offset = -2;
+  }
+  layer_set_frame( text_layer_get_layer(day_layer), GRect(REL_CLOCK_DATE_LEFT, REL_CLOCK_SUBTEXT_TOP + day_vert_offset, DEVICE_WIDTH, REL_CLOCK_DATE_HEIGHT) );
+}
+
 void position_time_layer() {
   // potentially adjust the clock position, if we've added/removed the week, day, or AM/PM layers
   int time_offset = 0;
@@ -994,20 +1021,21 @@ static void set_unifont() {
     text_layer_set_font(day_layer,fonts_get_system_font(FONT_KEY_GOTHIC_14));
     text_layer_set_font(text_connection_layer,fonts_get_system_font(FONT_KEY_GOTHIC_18));
     text_layer_set_font(date_layer,fonts_get_system_font(FONT_KEY_GOTHIC_24));
-    // set font pointers, for calendar
+    // set fonts, for calendar
     cal_normal = fonts_get_system_font(FONT_KEY_GOTHIC_14); // fh = 16
     cal_bold   = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD); // fh = 22
-    // set offsets...
   } else if ( strcmp(lang_gen.language,"RU") == 0 ) { // Unicode font w/ Cyrillic characters
     // set fonts...
     text_layer_set_font(day_layer,unifont_14);
     text_layer_set_font(text_connection_layer, unifont_18);
     text_layer_set_font(date_layer, unifont_24);
-    // set font pointers, for calendar
+    // set fonts, for calendar
     cal_normal = unifont_14; // fh = 16
     cal_bold   = unifont_18_bold; // fh = 22 // XXX TODO need a bold unicode/unifont option... maybe invert it or box it or something?
-    // set offsets...
   }
+  // set offsets...
+  position_date_layer();
+  position_day_layer();
 }
 
 static void window_load(Window *window) {
@@ -1064,11 +1092,12 @@ static void window_load(Window *window) {
   layer_set_update_proc(calendar_layer, calendar_layer_update_callback);
   layer_add_child(slot_bot, calendar_layer);
 
-  date_layer = text_layer_create( GRect(REL_CLOCK_DATE_LEFT, REL_CLOCK_DATE_TOP, DEVICE_WIDTH, REL_CLOCK_DATE_HEIGHT) );
+  date_layer = text_layer_create( GRect(REL_CLOCK_DATE_LEFT, REL_CLOCK_DATE_TOP, DEVICE_WIDTH, REL_CLOCK_DATE_HEIGHT) ); // see position_date_layer()
   text_layer_set_text_color(date_layer, GColorWhite);
   text_layer_set_background_color(date_layer, GColorClear);
   text_layer_set_font(date_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24));
   text_layer_set_text_alignment(date_layer, GTextAlignmentCenter);
+  position_date_layer(); // depends on font/language
   layer_add_child(datetime_layer, text_layer_get_layer(date_layer));
 
   time_layer = text_layer_create( GRect(REL_CLOCK_TIME_LEFT, REL_CLOCK_TIME_TOP, DEVICE_WIDTH, REL_CLOCK_TIME_HEIGHT) ); // see position_time_layer()
@@ -1089,11 +1118,12 @@ static void window_load(Window *window) {
     layer_set_hidden(text_layer_get_layer(week_layer), true);
   }
 
-  day_layer = text_layer_create( GRect(4, REL_CLOCK_SUBTEXT_TOP, 140, 16) );
+  day_layer = text_layer_create( GRect(4, REL_CLOCK_SUBTEXT_TOP, 140, 18) ); // see position_day_layer()
   text_layer_set_text_color(day_layer, GColorWhite);
   text_layer_set_background_color(day_layer, GColorClear);
   text_layer_set_font(day_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
   text_layer_set_text_alignment(day_layer, GTextAlignmentCenter);
+  position_day_layer(); // depends on font/language
   layer_add_child(datetime_layer, text_layer_get_layer(day_layer));
   if ( settings.show_day == 0 ) {
     layer_set_hidden(text_layer_get_layer(day_layer), true);
