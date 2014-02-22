@@ -4,12 +4,24 @@ Pebble.addEventListener("ready", function (e) {
 
 Pebble.addEventListener("showConfiguration", function () {
     console.log("Configuration window launching...");
-    //Pebble.openURL("http://www.cyn.org/pebble/timely/2.1.2a.php" + '?pat='+Pebble.getAccountToken()+'_=' + new Date().getTime());
     var options = { 'web': { 'lang': 'EN' } }; // TODO
+    var baseURL = 'http://www.cyn.org/pebble/timely/';
+    var pebtok  = '&pat=' + Pebble.getAccountToken();
+    var nocache = '&_=' + new Date().getTime();
 //    if (window.localStorage.timely_options !== undefined) { options = JSON.parse(window.localStorage.timely_options); }
-    Pebble.openURL("http://www.cyn.org/pebble/timely/2.1.2.php" + '?lang=' + options.web.lang + '&pat=' + Pebble.getAccountToken() + '&_=' + new Date().getTime());
-    //Pebble.openURL("http://www.cyn.org/pebble/timely/2.1.2.php" + '?pat=' + Pebble.getAccountToken() + '&_=' + new Date().getTime());
+    if (window.localStorage.version_config !== undefined) {
+        Pebble.openURL(baseURL + window.localStorage.version_config + ".php" + '?lang=' + options.web.lang + pebtok + nocache);
+    } else { // in case we never received the message / new install
+        Pebble.openURL(baseURL + "2.2.0.php" + '?lang=' + options.web.lang + pebtok + nocache);
+    }
 });
+
+function saveWatchVersion(e) {
+    console.log("Watch Version: " + e.payload.send_watch_version);
+    console.log("Config Version: " + e.payload.send_config_version);
+    window.localStorage.version_watch = e.payload.send_watch_version;
+    window.localStorage.version_config = e.payload.send_config_version;
+}
 
 function saveBatteryValue(e) {
     console.log("Battery: " + e.payload.send_batt_percent + "%, Charge: " + e.payload.send_batt_charging + ", Plugged: " + e.payload.send_batt_plugged);
@@ -48,6 +60,9 @@ Pebble.addEventListener("appmessage", function (e) {
     case 103:
         sendTimezoneToWatch();
         break;
+    case 104:
+        saveWatchVersion(e);
+        break;
     }
 });
 
@@ -58,7 +73,7 @@ function b64_to_utf8( str ) {
 Pebble.addEventListener("webviewclosed", function (e) {
     //console.log("Configuration closed");
     //console.log(e.response);
-    if (e.response !== undefined) { // user clicked Save/Submit, not Cancel/Done
+    if (e.response !== undefined && e.response != '') { // user clicked Save/Submit, not Cancel/Done
         var options = JSON.parse(b64_to_utf8(e.response));
         window.localStorage.timely_options = JSON.stringify(options);
         var web = options.web;

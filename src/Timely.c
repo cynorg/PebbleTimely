@@ -61,6 +61,7 @@ static bool vibe_suppression = true;
 #define TIMEZONE_UNINITIALIZED 80
 static int8_t timezone_offset = TIMEZONE_UNINITIALIZED;
 struct tm *currentTime;
+static int8_t seconds_shown = 0;
 
 // define the persistent storage key(s)
 #define PK_SETTINGS      0
@@ -92,6 +93,8 @@ struct tm *currentTime;
 #define AK_SEND_BATT_CHARGING   101
 #define AK_SEND_BATT_PLUGGED    102
 #define AK_TIMEZONE_OFFSET      103
+#define AK_SEND_WATCH_VERSION   104
+#define AK_SEND_CONFIG_VERSION  105
 
 #define AK_TRANS_ABBR_SUNDAY    500
 #define AK_TRANS_ABBR_MONDAY    501
@@ -630,6 +633,12 @@ void update_ampm_text(TextLayer *which_layer) {
   }
 }
 
+void update_seconds_text(TextLayer *which_layer) {
+  static char seconds_text[] = "00"; // 00-61
+  strftime(seconds_text, sizeof(seconds_text), "%S", currentTime);
+  text_layer_set_text(which_layer, seconds_text);
+}
+
 char * get_doy_text() {
   static char doy_text[] = "D000";
   strftime(doy_text, sizeof(doy_text), "D%j", currentTime);
@@ -709,7 +718,7 @@ void process_show_week() { // LEFT
     update_dliy_text(week_layer);
     break;
   case 6: // Show Seconds
-//    update_seconds_text(week_layer);
+    update_seconds_text(week_layer);
     break;
   }
 }
@@ -761,7 +770,7 @@ void process_show_ampm() { // RIGHT
     update_dliy_text(ampm_layer);
     break;
   case 6: // Show Seconds
-//    update_seconds_text(ampm_layer);
+    update_seconds_text(ampm_layer);
     break;
   }
 }
@@ -878,6 +887,33 @@ static void request_timezone(void *data) {
   }
   app_message_outbox_send();
   timezone_request = NULL;
+}
+
+static void watch_version_send(void *data) {
+  DictionaryIterator *iter;
+
+  AppMessageResult result = app_message_outbox_begin(&iter);
+
+  if (iter == NULL) {
+    if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "iterator is null: %d", result); }
+    return;
+  }
+
+  if (result != APP_MSG_OK) {
+    if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Dict write failed to open outbox: %d", (AppMessageResult) result); }
+    return;
+  }
+
+  if (dict_write_uint8(iter, AK_MESSAGE_TYPE, AK_SEND_WATCH_VERSION) != DICT_OK) {
+    return;
+  }
+  if (dict_write_uint8(iter, AK_SEND_WATCH_VERSION, settings.version) != DICT_OK) {
+    return;
+  }
+  if (dict_write_cstring(iter, AK_SEND_CONFIG_VERSION, "2.2.0") != DICT_OK) {
+    return;
+  }
+  app_message_outbox_send();
 }
 
 static void battery_status_send(void *data) {
@@ -1249,6 +1285,38 @@ void handle_minute_tick(struct tm *tick_time, TimeUnits units_changed)
   // calendar gets redrawn every time because time_layer is changed and all layers are redrawn together.
 }
 
+void handle_second_tick(struct tm *tick_time, TimeUnits units_changed)
+{
+  // update the seconds layer(s)...
+  if (settings.show_week == 6) {
+    update_seconds_text(week_layer);
+  }
+  if (settings.show_am_pm == 6) {
+    update_seconds_text(ampm_layer);
+  }
+  // redraw everything else if the minute changes...
+  if (units_changed & MINUTE_UNIT) {
+    handle_minute_tick(tick_time, units_changed);
+  }
+}
+
+static int need_second_tick_handler(void) {
+  if ((settings.show_week == 6) || (settings.show_am_pm == 6)) { return 1; }
+  return 0; 
+}
+
+static void switch_tick_handler(void) {
+  tick_timer_service_unsubscribe(); // I wonder if this is safe to call before we've subscribed...
+  seconds_shown = need_second_tick_handler();
+  if (seconds_shown) {
+    tick_timer_service_subscribe(SECOND_UNIT, &handle_second_tick);
+    if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Seconds handler enabled"); }
+  } else {
+    tick_timer_service_subscribe(MINUTE_UNIT, &handle_minute_tick);
+    if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Seconds handler disabled"); }
+  }
+}
+
 void my_out_sent_handler(DictionaryIterator *sent, void *context) {
 // outgoing message was delivered
 }
@@ -1352,6 +1420,10 @@ void in_configuration_handler(DictionaryIterator *received, void *context) {
       }  else {
         layer_set_hidden(text_layer_get_layer(ampm_layer), true);
       }
+    }
+
+    if (need_second_tick_handler() != seconds_shown) {
+      switch_tick_handler();
     }
 
     // now that we've received any changes, redraw the subtext (which processes week, day, and AM/PM)
@@ -1514,6 +1586,8 @@ static void init(void) {
 
   app_message_init();
 
+  watch_version_send(NULL); // no guarantee the JS is there to receive me...
+
   if (persist_exists(PK_SETTINGS)) {
     int result = 0;
     persist_read_data(PK_SETTINGS, &settings, sizeof(settings) );
@@ -1591,7 +1665,7 @@ static void init(void) {
 
   //update_time_text();
 
-  tick_timer_service_subscribe(MINUTE_UNIT, &handle_minute_tick);
+  switch_tick_handler();
   battery_state_service_subscribe(&handle_battery);
   handle_battery(battery_state_service_peek()); // initialize
   bluetooth_connection_service_subscribe(&handle_bluetooth);

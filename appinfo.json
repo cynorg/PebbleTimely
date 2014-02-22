@@ -31,6 +31,8 @@
     "send_batt_charging":  101,
     "send_batt_plugged":   102,
     "timezone_offset":     103,
+    "send_watch_version":  104,
+    "send_config_version": 105,
     "trans_abbr_sunday":   500,
     "trans_abbr_monday":   501,
     "trans_abbr_tuesday":  502,
