@@ -49,9 +49,9 @@ static InverterLayer *battery_meter_layer;
 static uint8_t battery_percent = 10;
 static bool battery_charging = false;
 static bool battery_plugged = false;
-static uint8_t sent_battery_percent = 10;
-static bool sent_battery_charging = false;
-static bool sent_battery_plugged = false;
+static uint8_t sent_battery_percent = 10;  // TODO - make these statics within the send function
+static bool sent_battery_charging = false; // TODO - make these statics within the send function
+static bool sent_battery_plugged = false;  // TODO - make these statics within the send function
 AppTimer *battery_sending = NULL;
 AppTimer *timezone_request = NULL;
 // connected info
@@ -69,6 +69,7 @@ static int8_t seconds_shown = 0;
 #define PK_LANG_DATETIME 2 // deprecated v10->v11 (utf8)
 #define PK_LANG_MONTHS   3
 #define PK_LANG_DAYS     4
+#define PK_DEBUGGING     5
 
 // define the appkeys used for appMessages
 #define AK_STYLE_INV     0
@@ -81,12 +82,13 @@ static int8_t seconds_shown = 0;
 #define AK_STYLE_DAY     7
 #define AK_STYLE_WEEK    8
 #define AK_INTL_FMT_WEEK 9
-#define AK_VERSION       10 // UNUSED
+#define AK_DEBUGGING_ON          10
 #define AK_VIBE_PAT_DISCONNECT   11
 #define AK_VIBE_PAT_CONNECT      12
 #define AK_STRFTIME_FORMAT       13 // not implemented in config page, yet...
 #define AK_TRACK_BATTERY         14 // UNUSED
 #define AK_LANGUAGE              15
+#define AK_DEBUGLANG_ON          16
 
 #define AK_MESSAGE_TYPE          99
 #define AK_SEND_BATT_PERCENT    100
@@ -173,7 +175,7 @@ static int8_t seconds_shown = 0;
 #define SLOT_ID_CLOCK_2  3
 
 // Create a struct to hold our persistent settings...
-typedef struct persist {
+typedef struct persist { // 18 bytes
   uint8_t version;                // version key
   uint8_t inverted;               // Invert display
   uint8_t day_invert;             // Invert colors on today's date
@@ -191,37 +193,36 @@ typedef struct persist {
   uint8_t track_battery;          // track battery information
 } __attribute__((__packed__)) persist;
 
-typedef struct DEFUNCT_persist_datetime_lang { // 247 bytes   // deprecated v10->v11 (utf8)
-  char monthsNames[12][13];       // 156: 12 characters for each of 12 months
-  char DaysOfWeek[7][13];         //  91: 12 characters for each of  7 weekdays
-//                                   247 bytes
-} __attribute__((__packed__)) DEFUNCT_persist_datetime_lang;
-
-typedef struct DEFUNCT_persist_general_lang { // 101 bytes   // deprecated v10->v11 (utf8)
-  char statuses[2][10];           //  20:  9 characters for each of  2 statuses
-  char abbrTime[2][6];            //  24:  5 characters for each of  2 abbreviations
-  char abbrDaysOfWeek[7][3];      //  21:  2 characters for each of  7 weekdays abbreviations
-  char abbrMonthsNames[12][4];    //  48:  3 characters for each of 12 months abbreviations
-//                                   101 bytes
-} __attribute__((__packed__)) DEFUNCT_persist_general_lang;
 typedef struct persist_months_lang { // 252 bytes
   char monthsNames[12][21];       // 252: 10-20 UTF8 characters for each of 12 months
 //                                   252 bytes
 } __attribute__((__packed__)) persist_months_lang;
 
-typedef struct persist_days_lang { // 182 bytes
-  char DaysOfWeek[7][26];         //  182: 12-25 UTF8 characters for each of 7 weekdays
-//                                   182 bytes
+typedef struct persist_days_lang { // 238 bytes
+  char DaysOfWeek[7][34];         //  238: 16-33 UTF8 characters for each of 7 weekdays
+//                                    238 bytes
 } __attribute__((__packed__)) persist_days_lang;
 
-typedef struct persist_general_lang { // 205 bytes
-  char statuses[2][20];           //  40:  9 characters for each of  2 statuses
-  char abbrTime[2][12];           //  24:  5 characters for each of  2 abbreviations
-  char abbrDaysOfWeek[7][6];      //  42:  2 characters for each of  7 weekdays abbreviations
-  char abbrMonthsNames[12][8];    //  96:  3 characters for each of 12 months abbreviations
+typedef struct persist_general_lang { // 253 bytes
+  char statuses[2][26];           //  40: 12-25 characters for each of  2 statuses
+  char abbrTime[2][12];           //  24:  5-11 characters for each of  2 abbreviations
+  char abbrDaysOfWeek[7][6];      //  42:  2- 5 characters for each of  7 weekdays abbreviations
+  char abbrMonthsNames[12][11];   // 132:  5-11 characters for each of 12 months abbreviations
   char language[3];               //   3:  2 characters for language (internal, stored as ascii for convenience)
-//                                   205 bytes
+//                                   253 bytes
 } __attribute__((__packed__)) persist_general_lang;
+
+typedef struct persist_debug { // 6 bytes
+  bool general;              // debugging messages (general)
+  bool language;             // debugging messages (language/translation)
+  bool reserved_1;           // debugging messages (reserved to spare updates later)
+  bool reserved_2;           // debugging messages (reserved to spare updates later)
+  bool reserved_3;           // debugging messages (reserved to spare updates later)
+  bool reserved_4;           // debugging messages (reserved to spare updates later)
+} __attribute__((__packed__)) persist_debug;
+
+/*
+*/
 
 persist settings = {
   .version    = 11,
@@ -241,9 +242,6 @@ persist settings = {
   .track_battery = 0, // no battery tracking by default
 };
 
-/*
-*/
-
 persist_months_lang lang_months = {
   .monthsNames = { "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" },
 };
@@ -258,6 +256,15 @@ persist_general_lang lang_gen = {
   .abbrDaysOfWeek = { "Su", "Mo", "Tu", "We", "Th", "Fr", "Sa" },
   .abbrMonthsNames = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" },
   .language = "EN",
+};
+
+persist_debug debug = {
+  .general = false,     // debugging disabled by default
+  .language  = false,   // debugging disabled by default
+  .reserved_1 = false,  // debugging disabled by default
+  .reserved_2 = false,  // debugging disabled by default
+  .reserved_3 = false,  // debugging disabled by default
+  .reserved_4 = false,  // debugging disabled by default
 };
 
 // How many days are/were in the month
@@ -401,9 +408,11 @@ void calendar_layer_update_callback(Layer *me, GContext* ctx) {
     if (strcmp(lang_gen.language,"RU") == 0 ) { font_vert_offset = -2; }
 
     // generate a light background for the calendar grid
-    setInvColors(ctx);
-    graphics_fill_rect(ctx, GRect (CAL_LEFT + CAL_GAP, CAL_HEIGHT - CAL_GAP, DEVICE_WIDTH - 2 * (CAL_LEFT + CAL_GAP), CAL_HEIGHT * weeks), 0, GCornerNone);
-    setColors(ctx);
+    if (settings.grid) {
+      setInvColors(ctx);
+      graphics_fill_rect(ctx, GRect (CAL_LEFT + CAL_GAP, CAL_HEIGHT - CAL_GAP, DEVICE_WIDTH - 2 * (CAL_LEFT + CAL_GAP), CAL_HEIGHT * weeks), 0, GCornerNone);
+      setColors(ctx);
+    }
     for (int col = 0; col < CAL_DAYS; col++) {
 
       // Adjust labels by specified offset
@@ -421,6 +430,10 @@ void calendar_layer_update_callback(Layer *me, GContext* ctx) {
       // draw the cell text
       graphics_draw_text(ctx, lang_gen.abbrDaysOfWeek[weekday], current, GRect(CAL_WIDTH * col + CAL_LEFT + CAL_GAP, CAL_GAP + font_vert_offset, CAL_WIDTH, CAL_HEIGHT), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL); 
       if (col == specialDay) {
+        if (strcmp(lang_gen.language,"RU") == 0 ) {
+          // we don't actually have a bold font for this, so we'll use font double-striking to simulate bold
+          graphics_draw_text(ctx, lang_gen.abbrDaysOfWeek[weekday], current, GRect(CAL_WIDTH * col + CAL_LEFT + CAL_GAP + 1, CAL_GAP + font_vert_offset, CAL_WIDTH, CAL_HEIGHT), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL); 
+        }
         current = cal_normal;
         font_vert_offset = 0;
         if (strcmp(lang_gen.language,"RU") == 0 ) { font_vert_offset = -2; }
@@ -440,7 +453,9 @@ void calendar_layer_update_callback(Layer *me, GContext* ctx) {
       week++;
       for (int col = 0; col < CAL_DAYS; col++) {
         if ( row == 2 && col == specialDay) {
-          setInvColors(ctx);
+          if (settings.day_invert) {
+            setInvColors(ctx);
+          }
           current = bold;
           font_vert_offset = -3;
         }
@@ -465,12 +480,12 @@ void calendar_layer_update_callback(Layer *me, GContext* ctx) {
 void update_date_text() {
 
     // TODO - 18 @ this font is approaching the max width, localization may require smaller fonts, or no year...
-    //September 11, 2013 => 18 chars
+    //September 11, 2013 => 18 chars, 9 of which could potentially be dual byte utf8 characters
     //123456789012345678
 
-    static char date_text[15];
-    static char date_text_2[15];
-    static char date_string[30];
+    static char date_text[24];
+    static char date_text_2[24];
+    static char date_string[48];
     char *strftime_format;
     // http://www.cplusplus.com/reference/ctime/strftime/
 
@@ -776,7 +791,7 @@ void process_show_ampm() { // RIGHT
 }
 
 void position_connection_layer() {
-  int connection_vert_offset = 0;
+  static int connection_vert_offset = 0;
   // potentially adjust the connection position, depending on language/font
   if ( strcmp(lang_gen.language,"EN") == 0 ) { // Standard font
     connection_vert_offset = 0;
@@ -787,7 +802,7 @@ void position_connection_layer() {
 }
 
 void position_date_layer() {
-  int date_vert_offset = 0;
+  static int date_vert_offset = 0;
   // potentially adjust the date position, depending on language/font
   if ( strcmp(lang_gen.language,"EN") == 0 ) { // Standard font
     date_vert_offset = -9;
@@ -799,8 +814,7 @@ void position_date_layer() {
 
 void position_day_layer() {
   // potentially adjust the day position, depending on language/font
-  int day_vert_offset = 0;
-  // potentially adjust the date position, depending on language/font
+  static int day_vert_offset = 0;
   if ( strcmp(lang_gen.language,"EN") == 0 ) { // Standard font
     day_vert_offset = 0;
   } else if ( strcmp(lang_gen.language,"RU") == 0 ) { // Unicode font w/ Cyrillic characters
@@ -811,7 +825,7 @@ void position_day_layer() {
 
 void position_time_layer() {
   // potentially adjust the clock position, if we've added/removed the week, day, or AM/PM layers
-  int time_offset = 0;
+  static int time_offset = 0;
   if (!settings.show_day && !settings.show_week) {
     time_offset = 4;
     if (!settings.show_am_pm) {
@@ -879,7 +893,7 @@ static void request_timezone(void *data) {
   DictionaryIterator *iter;
   AppMessageResult result = app_message_outbox_begin(&iter);
   if (iter == NULL) {
-    if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "iterator is null: %d", result); }
+    if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "iterator is null: %d", result); }
     return;
   }
   if (dict_write_uint8(iter, AK_MESSAGE_TYPE, AK_TIMEZONE_OFFSET) != DICT_OK) {
@@ -895,12 +909,12 @@ static void watch_version_send(void *data) {
   AppMessageResult result = app_message_outbox_begin(&iter);
 
   if (iter == NULL) {
-    if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "iterator is null: %d", result); }
+    if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "iterator is null: %d", result); }
     return;
   }
 
   if (result != APP_MSG_OK) {
-    if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Dict write failed to open outbox: %d", (AppMessageResult) result); }
+    if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Dict write failed to open outbox: %d", (AppMessageResult) result); }
     return;
   }
 
@@ -923,7 +937,7 @@ static void battery_status_send(void *data) {
   if ( (battery_percent  == sent_battery_percent  )
      & (battery_charging == sent_battery_charging )
      & (battery_plugged  == sent_battery_plugged  ) ) {
-    if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "repeat battery reading"); }
+    if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "repeat battery reading"); }
     battery_sending = NULL;
     return; // no need to resend the same value
   }
@@ -932,12 +946,12 @@ static void battery_status_send(void *data) {
   AppMessageResult result = app_message_outbox_begin(&iter);
 
   if (iter == NULL) {
-    if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "iterator is null: %d", result); }
+    if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "iterator is null: %d", result); }
     return;
   }
 
   if (result != APP_MSG_OK) {
-    if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Dict write failed to open outbox: %d", (AppMessageResult) result); }
+    if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Dict write failed to open outbox: %d", (AppMessageResult) result); }
     return;
   }
 
@@ -972,11 +986,11 @@ static void handle_battery(BatteryChargeState charge_state) {
   layer_set_bounds(inverter_layer_get_layer(battery_meter_layer), GRect(STAT_BATT_LEFT+2, STAT_BATT_TOP+2, battery_meter, STAT_BATT_HEIGHT-4));
   layer_set_hidden(inverter_layer_get_layer(battery_meter_layer), false);
 
-  //if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "battery reading"); }
+  //if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "battery reading"); }
   if (battery_sending == NULL) {
     // multiple battery events can fire in rapid succession, we'll let it settle down before logging it
     battery_sending = app_timer_register(5000, &battery_status_send, NULL);
-    if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "battery timer queued"); }
+    if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "battery timer queued"); }
   }
 
   if (charge_state.is_charging) { // charging
@@ -1054,11 +1068,15 @@ void update_connection() {
 }
 
 static void handle_bluetooth(bool connected) {
-  bluetooth_connected = connected;
-  update_connection();
-  if ( (timezone_request == NULL) & (timezone_offset == TIMEZONE_UNINITIALIZED) ) {
-    timezone_request = app_timer_register(5000, &request_timezone, NULL); // give it time to settle...
-    if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "timezone request timer queued"); }
+  if (bluetooth_connected != connected) {
+    bluetooth_connected = connected;
+    update_connection();
+    if (bluetooth_connected == true) {
+      if ( (timezone_request == NULL) & (timezone_offset == TIMEZONE_UNINITIALIZED) ) {
+        timezone_request = app_timer_register(5000, &request_timezone, NULL); // give it time to settle...
+        if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "timezone request timer queued"); }
+      }
+    }
   }
 }
 
@@ -1081,7 +1099,9 @@ static void set_unifont() {
     cal_bold   = unifont_18_bold; // fh = 22 // XXX TODO need a bold unicode/unifont option... maybe invert it or box it or something?
   }
   // set offsets...
+  position_connection_layer();
   position_date_layer();
+  position_time_layer();
   position_day_layer();
 }
 
@@ -1306,23 +1326,24 @@ static int need_second_tick_handler(void) {
 }
 
 static void switch_tick_handler(void) {
-  tick_timer_service_unsubscribe(); // I wonder if this is safe to call before we've subscribed...
+  tick_timer_service_unsubscribe(); // safe to call even before we've subscribed
   seconds_shown = need_second_tick_handler();
   if (seconds_shown) {
     tick_timer_service_subscribe(SECOND_UNIT, &handle_second_tick);
-    if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Seconds handler enabled"); }
+    if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Seconds handler enabled"); }
   } else {
     tick_timer_service_subscribe(MINUTE_UNIT, &handle_minute_tick);
-    if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Seconds handler disabled"); }
+    if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Seconds handler disabled"); }
   }
 }
 
 void my_out_sent_handler(DictionaryIterator *sent, void *context) {
 // outgoing message was delivered
+  if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "AppMessage Delivered"); }
 }
 void my_out_fail_handler(DictionaryIterator *failed, AppMessageResult reason, void *context) {
 // outgoing message failed
-  if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "AppMessage Failed to Send: %d", reason); }
+  if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "AppMessage Failed to Send: %d", reason); }
 }
 
 void in_timezone_handler(DictionaryIterator *received, void *context) {
@@ -1331,10 +1352,36 @@ void in_timezone_handler(DictionaryIterator *received, void *context) {
       timezone_offset = tz_offset->value->int8;
       update_datetime_subtext();
     }
-  if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Timezone received: %d", timezone_offset); }
+  if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Timezone received: %d", timezone_offset); }
 }
 
 void in_configuration_handler(DictionaryIterator *received, void *context) {
+    // debugging first (so we can catch this message)
+
+    // AK_DEBUGGING_ON == general debugging
+    Tuple *debugging = dict_find(received, AK_DEBUGGING_ON);
+    if (debugging != NULL) {
+      if (debugging->value->uint8 != 0) {
+        debug.general = true;
+        app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Debugging enabled.");
+      } else {
+        if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Debugging disabled."); }
+        debug.general = false;
+      } 
+    }
+
+    // AK_DEBUGLANG_ON == language / translation debugging
+    Tuple *debuglang = dict_find(received, AK_DEBUGLANG_ON);
+    if (debuglang != NULL) {
+      if (debuglang->value->uint8 != 0) {
+        debug.language = true;
+        if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Language debugging enabled."); }
+      } else {
+        debug.language = false;
+        if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Language debugging disabled."); }
+      } 
+    }
+
     // style_inv == inverted
     Tuple *style_inv = dict_find(received, AK_STYLE_INV);
     if (style_inv != NULL) {
@@ -1454,7 +1501,7 @@ void in_configuration_handler(DictionaryIterator *received, void *context) {
     // AK_LANGUAGE == language, e.g. EN
     Tuple *chosen_language = dict_find(received, AK_LANGUAGE);
     if (chosen_language != NULL) {
-      if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Language is set to %s", chosen_language->value->cstring); }
+      if (debug.language) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Language is set to %s", chosen_language->value->cstring); }
       strncpy(lang_gen.language, chosen_language->value->cstring, sizeof(lang_gen.language)-1);
       set_unifont();
     }
@@ -1463,7 +1510,7 @@ void in_configuration_handler(DictionaryIterator *received, void *context) {
     for (int i = AK_TRANS_ABBR_SUNDAY; i <= AK_TRANS_ABBR_SATURDAY; i++ ) {
       translation = dict_find(received, i);
       if (translation != NULL) {
-        if (TRANSLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "translation for key %d is %s", i, translation->value->cstring); }
+        if (debug.language) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "translation for key %d is %s", i, translation->value->cstring); }
         strncpy(lang_gen.abbrDaysOfWeek[i - AK_TRANS_ABBR_SUNDAY], translation->value->cstring, sizeof(lang_gen.abbrDaysOfWeek[i - AK_TRANS_ABBR_SUNDAY])-1);
       }
     }
@@ -1472,7 +1519,7 @@ void in_configuration_handler(DictionaryIterator *received, void *context) {
     for (int i = AK_TRANS_SUNDAY; i <= AK_TRANS_SATURDAY; i++ ) {
       translation = dict_find(received, i);
       if (translation != NULL) {
-        if (TRANSLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "translation for key %d is %s", i, translation->value->cstring); }
+        if (debug.language) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "translation for key %d is %s", i, translation->value->cstring); }
         strncpy(lang_days.DaysOfWeek[i - AK_TRANS_SUNDAY], translation->value->cstring, sizeof(lang_days.DaysOfWeek[i - AK_TRANS_SUNDAY])-1);
       }
     }
@@ -1481,7 +1528,7 @@ void in_configuration_handler(DictionaryIterator *received, void *context) {
     for (int i = AK_TRANS_ABBR_JANUARY; i <= AK_TRANS_ABBR_DECEMBER; i++ ) {
       translation = dict_find(received, i);
       if (translation != NULL) {
-        if (TRANSLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "translation for key %d is %s", i, translation->value->cstring); }
+        if (debug.language) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "translation for key %d is %s", i, translation->value->cstring); }
         strncpy(lang_gen.abbrMonthsNames[i - AK_TRANS_ABBR_JANUARY], translation->value->cstring, sizeof(lang_gen.abbrMonthsNames[i - AK_TRANS_ABBR_JANUARY])-1);
       }
     }
@@ -1490,7 +1537,7 @@ void in_configuration_handler(DictionaryIterator *received, void *context) {
     for (int i = AK_TRANS_JANUARY; i <= AK_TRANS_DECEMBER; i++ ) {
       translation = dict_find(received, i);
       if (translation != NULL) {
-        if (TRANSLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "translation for key %d is %s", i, translation->value->cstring); }
+        if (debug.language) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "translation for key %d is %s", i, translation->value->cstring); }
         strncpy(lang_months.monthsNames[i - AK_TRANS_JANUARY], translation->value->cstring, sizeof(lang_months.monthsNames[i - AK_TRANS_JANUARY])-1);
       }
     }
@@ -1499,7 +1546,7 @@ void in_configuration_handler(DictionaryIterator *received, void *context) {
     for (int i = AK_TRANS_CONNECTED; i <= AK_TRANS_DISCONNECTED; i++ ) {
       translation = dict_find(received, i);
       if (translation != NULL) {
-        if (TRANSLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "translation for key %d is %s", i, translation->value->cstring); }
+        if (debug.language) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "translation for key %d is %s", i, translation->value->cstring); }
         strncpy(lang_gen.statuses[i - AK_TRANS_CONNECTED], translation->value->cstring, sizeof(lang_gen.statuses[i - AK_TRANS_CONNECTED])-1);
       }
     }
@@ -1511,7 +1558,7 @@ void in_configuration_handler(DictionaryIterator *received, void *context) {
     for (int i = AK_TRANS_TIME_AM; i <= AK_TRANS_TIME_PM; i++ ) {
       translation = dict_find(received, i);
       if (translation != NULL) {
-        if (TRANSLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "translation for key %d is %s", i, translation->value->cstring); }
+        if (debug.language) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "translation for key %d is %s", i, translation->value->cstring); }
         strncpy(lang_gen.abbrTime[i - AK_TRANS_TIME_AM], translation->value->cstring, sizeof(lang_gen.abbrTime[i - AK_TRANS_TIME_AM])-1);
       }
     }
@@ -1520,13 +1567,15 @@ void in_configuration_handler(DictionaryIterator *received, void *context) {
 
     int result = 0;
     result = persist_write_data(PK_SETTINGS, &settings, sizeof(settings) );
-    if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Wrote %d bytes into settings", result); }
+    if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Wrote %d bytes into settings", result); }
     result = persist_write_data(PK_LANG_GEN, &lang_gen, sizeof(lang_gen) );
-    if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Wrote %d bytes into lang_gen", result); }
+    if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Wrote %d bytes into lang_gen", result); }
     result = persist_write_data(PK_LANG_MONTHS, &lang_months, sizeof(lang_months) );
-    if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Wrote %d bytes into lang_months", result); }
+    if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Wrote %d bytes into lang_months", result); }
     result = persist_write_data(PK_LANG_DAYS, &lang_days, sizeof(lang_days) );
-    if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Wrote %d bytes into lang_days", result); }
+    if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Wrote %d bytes into lang_days", result); }
+    result = persist_write_data(PK_DEBUGGING, &debug, sizeof(debug) );
+    if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Wrote %d bytes into debug", result); }
 
     // ==== Implemented SDK ====
     // Battery
@@ -1536,24 +1585,22 @@ void in_configuration_handler(DictionaryIterator *received, void *context) {
     // ==== Available in SDK ====
     // Accelerometer
     // App Focus ( does this apply to Timely? )
+    // PebbleKit JS - more accurate location data: enableHighAccuracy (takes a while on IOS)
     // ==== Waiting on / SDK gaps ====
     // Magnetometer
-    // PebbleKit JS - more accurate location data
     // ==== Interesting SDK possibilities ====
     // PebbleKit JS - more information from phone
     // ==== Future improvements ====
     // Positioning - top, bottom, etc.
-  if (1) { layer_mark_dirty(calendar_layer); }
-  if (1) { layer_mark_dirty(datetime_layer); }
-
-  //update_time_text(&currentTime);
+  if (1) { layer_mark_dirty(calendar_layer); } // TODO
+  if (1) { layer_mark_dirty(datetime_layer); } // TODO
 }
 
 void my_in_rcv_handler(DictionaryIterator *received, void *context) {
 // incoming message received
   Tuple *message_type = dict_find(received, AK_MESSAGE_TYPE);
   if (message_type != NULL) {
-    if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Message type %d received", message_type->value->uint8); }
+    if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Message type %d received", message_type->value->uint8); }
     switch ( message_type->value->uint8 ) {
     case AK_TIMEZONE_OFFSET:
       in_timezone_handler(received, context);
@@ -1567,7 +1614,7 @@ void my_in_rcv_handler(DictionaryIterator *received, void *context) {
 
 void my_in_drp_handler(AppMessageResult reason, void *context) {
 // incoming message dropped
-  if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "AppMessage Dropped: %d", reason); }
+  if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "AppMessage Dropped: %d", reason); }
 }
 
 static void app_message_init(void) {
@@ -1580,8 +1627,73 @@ static void app_message_init(void) {
   app_message_open(app_message_inbox_size_maximum(), app_message_outbox_size_maximum());
 }
 
+static void upgrade_pk_v10_v11() {
+  int result = 0;
+  if (persist_exists(PK_LANG_DATETIME)) {
+    typedef struct DEFUNCT_persist_datetime_lang { // 247 bytes   // deprecated v10->v11 (utf8)
+      char monthsNames[12][13];       // 156: 12 characters for each of 12 months
+      char DaysOfWeek[7][13];         //  91: 12 characters for each of  7 weekdays
+    } __attribute__((__packed__)) DEFUNCT_persist_datetime_lang;
+    DEFUNCT_persist_datetime_lang lang_datetime = {   // deprecated v10->v11 (utf8)
+      .monthsNames = { "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" },
+      .DaysOfWeek = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" },
+    };
+    persist_read_data(PK_LANG_DATETIME, &lang_datetime, sizeof(lang_datetime) );
+    // split char arrays out into individual new UTF8-sized PKs
+    for (int i = AK_TRANS_JANUARY; i <= AK_TRANS_DECEMBER; i++ ) {
+      strncpy(lang_months.monthsNames[i - AK_TRANS_JANUARY], lang_datetime.monthsNames[i - AK_TRANS_JANUARY], sizeof(lang_datetime.monthsNames[i - AK_TRANS_JANUARY])-1);
+    }
+    result = persist_write_data(PK_LANG_MONTHS, &lang_months, sizeof(lang_months) );
+    if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Upgraded structures, v10->v11, wrote %d bytes into lang_months", result); }
+    for (int i = AK_TRANS_SUNDAY; i <= AK_TRANS_SATURDAY; i++ ) {
+        strncpy(lang_days.DaysOfWeek[i - AK_TRANS_SUNDAY], lang_datetime.DaysOfWeek[i - AK_TRANS_SUNDAY], sizeof(lang_datetime.DaysOfWeek[i - AK_TRANS_SUNDAY])-1);
+    }
+    result = persist_write_data(PK_LANG_DAYS, &lang_days, sizeof(lang_days) );
+    if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Upgraded structures, v10->v11, wrote %d bytes into lang_days", result); }
+    result = persist_delete(PK_LANG_DATETIME);
+    if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Upgraded structures, v10->v11, %d - deleted PK for lang_datetime", result); }
+  }
+
+  typedef struct DEFUNCT_persist_general_lang { // 101 bytes   // deprecated v10->v11 (utf8)
+    char statuses[2][10];           //  20:  9 characters for each of  2 statuses
+    char abbrTime[2][6];            //  24:  5 characters for each of  2 abbreviations
+    char abbrDaysOfWeek[7][3];      //  21:  2 characters for each of  7 weekdays abbreviations
+    char abbrMonthsNames[12][4];    //  48:  3 characters for each of 12 months abbreviations
+  //                                   101 bytes
+  } __attribute__((__packed__)) DEFUNCT_persist_general_lang;
+  DEFUNCT_persist_general_lang old_lang_gen = {   // deprecated v10->v11 (utf8)
+    .statuses = { "Linked", "NOLINK" },
+    .abbrTime = { "AM", "PM" },
+    .abbrDaysOfWeek = { "Su", "Mo", "Tu", "We", "Th", "Fr", "Sa" },
+    .abbrMonthsNames = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" },
+  };
+  persist_read_data(PK_LANG_GEN, &old_lang_gen, sizeof(old_lang_gen) );
+
+  for (int i = AK_TRANS_CONNECTED; i <= AK_TRANS_DISCONNECTED; i++ ) {
+    strncpy(lang_gen.statuses[i - AK_TRANS_CONNECTED], old_lang_gen.statuses[i - AK_TRANS_CONNECTED], sizeof(old_lang_gen.statuses[i - AK_TRANS_CONNECTED])-1);
+  }
+  for (int i = AK_TRANS_TIME_AM; i <= AK_TRANS_TIME_PM; i++ ) {
+    strncpy(lang_gen.abbrTime[i - AK_TRANS_TIME_AM], old_lang_gen.abbrTime[i - AK_TRANS_TIME_AM], sizeof(old_lang_gen.abbrTime[i - AK_TRANS_TIME_AM])-1);
+  }
+  for (int i = AK_TRANS_ABBR_SUNDAY; i <= AK_TRANS_ABBR_SATURDAY; i++ ) {
+    strncpy(lang_gen.abbrDaysOfWeek[i - AK_TRANS_ABBR_SUNDAY], old_lang_gen.abbrDaysOfWeek[i - AK_TRANS_ABBR_SUNDAY], sizeof(old_lang_gen.abbrDaysOfWeek[i - AK_TRANS_ABBR_SUNDAY])-1);
+  }
+  for (int i = AK_TRANS_ABBR_JANUARY; i <= AK_TRANS_ABBR_DECEMBER; i++ ) {
+    strncpy(lang_gen.abbrMonthsNames[i - AK_TRANS_ABBR_JANUARY], old_lang_gen.abbrMonthsNames[i - AK_TRANS_ABBR_JANUARY], sizeof(old_lang_gen.abbrMonthsNames[i - AK_TRANS_ABBR_JANUARY])-1);
+  }
+  result = persist_write_data(PK_LANG_GEN, &lang_gen, sizeof(lang_gen) );
+  if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Upgraded structures, v10->v11, wrote %d bytes into lang_gen", result); }
+
+  // blindly assume success and update our version - if it failed, then defaults will be loaded anyway...
+  settings.version = 11;
+  result = persist_write_data(PK_SETTINGS, &settings, sizeof(settings) );
+  if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Upgraded structures, v10->v11, wrote %d bytes into settings", result); }
+}
+
 static void init(void) {
 
+  if (DEBUGLOG == 1) { debug.general = true; }
+  if (TRANSLOG == 1) { debug.language = true; }
   currentTime = get_time();
 
   app_message_init();
@@ -1589,58 +1701,8 @@ static void init(void) {
   watch_version_send(NULL); // no guarantee the JS is there to receive me...
 
   if (persist_exists(PK_SETTINGS)) {
-    int result = 0;
     persist_read_data(PK_SETTINGS, &settings, sizeof(settings) );
-    if (settings.version == 10) { // v10 -> v11 upgrades
-      if (persist_exists(PK_LANG_DATETIME)) {
-        DEFUNCT_persist_datetime_lang lang_datetime = {   // deprecated v10->v11 (utf8)
-          .monthsNames = { "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" },
-          .DaysOfWeek = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" },
-        };
-        persist_read_data(PK_LANG_DATETIME, &lang_datetime, sizeof(lang_datetime) );
-        // split char arrays out into individual new UTF8-sized PKs
-        for (int i = AK_TRANS_JANUARY; i <= AK_TRANS_DECEMBER; i++ ) {
-          strncpy(lang_months.monthsNames[i - AK_TRANS_JANUARY], lang_datetime.monthsNames[i - AK_TRANS_JANUARY], sizeof(lang_datetime.monthsNames[i - AK_TRANS_JANUARY])-1);
-        }
-        result = persist_write_data(PK_LANG_MONTHS, &lang_months, sizeof(lang_months) );
-        if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Upgraded structures, v10->v11, wrote %d bytes into lang_months", result); }
-        for (int i = AK_TRANS_SUNDAY; i <= AK_TRANS_SATURDAY; i++ ) {
-            strncpy(lang_days.DaysOfWeek[i - AK_TRANS_SUNDAY], lang_datetime.DaysOfWeek[i - AK_TRANS_SUNDAY], sizeof(lang_datetime.DaysOfWeek[i - AK_TRANS_SUNDAY])-1);
-        }
-        result = persist_write_data(PK_LANG_DAYS, &lang_days, sizeof(lang_days) );
-        if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Upgraded structures, v10->v11, wrote %d bytes into lang_days", result); }
-        result = persist_delete(PK_LANG_DATETIME);
-        if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Upgraded structures, v10->v11, %d - deleted PK for lang_datetime", result); }
-      }
-
-      DEFUNCT_persist_general_lang old_lang_gen = {   // deprecated v10->v11 (utf8)
-        .statuses = { "Linked", "NOLINK" },
-        .abbrTime = { "AM", "PM" },
-        .abbrDaysOfWeek = { "Su", "Mo", "Tu", "We", "Th", "Fr", "Sa" },
-        .abbrMonthsNames = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" },
-      };
-      persist_read_data(PK_LANG_GEN, &old_lang_gen, sizeof(old_lang_gen) );
-
-      for (int i = AK_TRANS_CONNECTED; i <= AK_TRANS_DISCONNECTED; i++ ) {
-        strncpy(lang_gen.statuses[i - AK_TRANS_CONNECTED], old_lang_gen.statuses[i - AK_TRANS_CONNECTED], sizeof(old_lang_gen.statuses[i - AK_TRANS_CONNECTED])-1);
-      }
-      for (int i = AK_TRANS_TIME_AM; i <= AK_TRANS_TIME_PM; i++ ) {
-        strncpy(lang_gen.abbrTime[i - AK_TRANS_TIME_AM], old_lang_gen.abbrTime[i - AK_TRANS_TIME_AM], sizeof(old_lang_gen.abbrTime[i - AK_TRANS_TIME_AM])-1);
-      }
-      for (int i = AK_TRANS_ABBR_SUNDAY; i <= AK_TRANS_ABBR_SATURDAY; i++ ) {
-        strncpy(lang_gen.abbrDaysOfWeek[i - AK_TRANS_ABBR_SUNDAY], old_lang_gen.abbrDaysOfWeek[i - AK_TRANS_ABBR_SUNDAY], sizeof(old_lang_gen.abbrDaysOfWeek[i - AK_TRANS_ABBR_SUNDAY])-1);
-      }
-      for (int i = AK_TRANS_ABBR_JANUARY; i <= AK_TRANS_ABBR_DECEMBER; i++ ) {
-        strncpy(lang_gen.abbrMonthsNames[i - AK_TRANS_ABBR_JANUARY], old_lang_gen.abbrMonthsNames[i - AK_TRANS_ABBR_JANUARY], sizeof(old_lang_gen.abbrMonthsNames[i - AK_TRANS_ABBR_JANUARY])-1);
-      }
-      result = persist_write_data(PK_LANG_GEN, &lang_gen, sizeof(lang_gen) );
-      if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Upgraded structures, v10->v11, wrote %d bytes into lang_gen", result); }
-
-      // blindly assume success and update our version - if it failed, then defaults will be loaded anyway...
-      settings.version = 11;
-      result = persist_write_data(PK_SETTINGS, &settings, sizeof(settings) );
-      if (DEBUGLOG) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Upgraded structures, v10->v11, wrote %d bytes into settings", result); }
-    }
+    if (settings.version == 10) { upgrade_pk_v10_v11(); } // v10 -> v11 upgrades
     if (persist_exists(PK_LANG_GEN)) {
       persist_read_data(PK_LANG_GEN, &lang_gen, sizeof(lang_gen) );
     }
@@ -1650,7 +1712,13 @@ static void init(void) {
     if (persist_exists(PK_LANG_DAYS)) {
       persist_read_data(PK_LANG_DAYS, &lang_days, sizeof(lang_days) );
     }
+    if (persist_exists(PK_DEBUGGING)) {
+      persist_read_data(PK_DEBUGGING, &debug, sizeof(debug) );
+    }
   }
+  // re-initialize this, if it was set, since we're storing those values persistently as well...
+  if (DEBUGLOG == 1) { debug.general= true; }
+  if (TRANSLOG == 1) { debug.language = true; }
 
   request_timezone(NULL);
 

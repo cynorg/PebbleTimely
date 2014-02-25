@@ -79,7 +79,9 @@ Pebble.addEventListener("webviewclosed", function (e) {
         var web = options.web;
         delete options.web; // remove the 'web' object from our response, which has preferences such as language...
         options[15] = web.lang; // re-inject the language
-        console.log("Options = " + JSON.stringify(options));
+        if (options[10] == 1) { // debugging is on...
+          console.log("Options = " + JSON.stringify(options));
+        }
         Pebble.sendAppMessage(options,
             function (e) {
                 console.log("Successfully delivered message with transactionId=" + e.data.transactionId);
