@@ -4,11 +4,13 @@ Pebble.addEventListener("ready", function (e) {
 
 Pebble.addEventListener("showConfiguration", function () {
     console.log("Configuration window launching...");
-    var options = { 'web': { 'lang': 'EN' } }; // TODO
-    var baseURL = 'http://www.cyn.org/pebble/timely/';
-    var pebtok  = '&pat=' + Pebble.getAccountToken();
-    var nocache = '&_=' + new Date().getTime();
-//    if (window.localStorage.timely_options !== undefined) { options = JSON.parse(window.localStorage.timely_options); }
+    var options, baseURL, pebtok, nocache;
+    options = { 'web': { 'lang': 'EN' } };
+    baseURL = 'http://www.cyn.org/pebble/timely/';
+    pebtok  = '&pat=' + Pebble.getAccountToken();
+    nocache = '&_=' + new Date().getTime();
+    if (window.localStorage.timely_options !== undefined) { options = JSON.parse(window.localStorage.timely_options); }
+    console.log("Language: " + options.web.lang);
     if (window.localStorage.version_config !== undefined) {
         Pebble.openURL(baseURL + window.localStorage.version_config + ".php" + '?lang=' + options.web.lang + pebtok + nocache);
     } else { // in case we never received the message / new install
@@ -73,13 +75,14 @@ function b64_to_utf8( str ) {
 Pebble.addEventListener("webviewclosed", function (e) {
     //console.log("Configuration closed");
     //console.log(e.response);
-    if (e.response !== undefined && e.response != '') { // user clicked Save/Submit, not Cancel/Done
-        var options = JSON.parse(b64_to_utf8(e.response));
+    if (e.response !== undefined && e.response !== '') { // user clicked Save/Submit, not Cancel/Done
+        var options, web;
+        options = JSON.parse(b64_to_utf8(e.response));
         window.localStorage.timely_options = JSON.stringify(options);
-        var web = options.web;
+        web = options.web;
         delete options.web; // remove the 'web' object from our response, which has preferences such as language...
         options[15] = web.lang; // re-inject the language
-        if (options[10] == 1) { // debugging is on...
+        if (options[10] === 1) { // debugging is on...
           console.log("Options = " + JSON.stringify(options));
         }
         Pebble.sendAppMessage(options,
