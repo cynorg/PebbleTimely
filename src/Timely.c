@@ -826,11 +826,10 @@ void position_day_layer() {
 void position_time_layer() {
   // potentially adjust the clock position, if we've added/removed the week, day, or AM/PM layers
   static int time_offset = 0;
-  if (!settings.show_day && !settings.show_week) {
-    time_offset = 4;
-    if (!settings.show_am_pm) {
-      time_offset = 8;
-    }
+  if (!settings.show_day && !settings.show_week && !settings.show_am_pm) {
+    time_offset = 8;
+  } else {
+    time_offset = 0;
   }
   layer_set_frame( text_layer_get_layer(time_layer), GRect(REL_CLOCK_TIME_LEFT, REL_CLOCK_TIME_TOP + time_offset, DEVICE_WIDTH, REL_CLOCK_TIME_HEIGHT) );
 }
