@@ -793,10 +793,10 @@ void process_show_ampm() { // RIGHT
 void position_connection_layer() {
   static int connection_vert_offset = 0;
   // potentially adjust the connection position, depending on language/font
-  if ( strcmp(lang_gen.language,"EN") == 0 ) { // Standard font
-    connection_vert_offset = 0;
-  } else if ( strcmp(lang_gen.language,"RU") == 0 ) { // Unicode font w/ Cyrillic characters
+  if ( strcmp(lang_gen.language,"RU") == 0 ) { // Unicode font w/ Cyrillic characters
     connection_vert_offset = 2;
+  } else { // Standard font
+    connection_vert_offset = 0;
   }
   layer_set_frame( text_layer_get_layer(text_connection_layer), GRect(20+STAT_BT_ICON_LEFT, connection_vert_offset, 72, 22) );
 }
@@ -804,10 +804,10 @@ void position_connection_layer() {
 void position_date_layer() {
   static int date_vert_offset = 0;
   // potentially adjust the date position, depending on language/font
-  if ( strcmp(lang_gen.language,"EN") == 0 ) { // Standard font
-    date_vert_offset = -9;
-  } else if ( strcmp(lang_gen.language,"RU") == 0 ) { // Unicode font w/ Cyrillic characters
+  if ( strcmp(lang_gen.language,"RU") == 0 ) { // Unicode font w/ Cyrillic characters
     date_vert_offset = -4;
+  } else { // Standard font (EN, etc.)
+    date_vert_offset = -9;
   }
   layer_set_frame( text_layer_get_layer(date_layer), GRect(REL_CLOCK_DATE_LEFT, REL_CLOCK_DATE_TOP + date_vert_offset, DEVICE_WIDTH, REL_CLOCK_DATE_HEIGHT) );
 }
@@ -815,10 +815,10 @@ void position_date_layer() {
 void position_day_layer() {
   // potentially adjust the day position, depending on language/font
   static int day_vert_offset = 0;
-  if ( strcmp(lang_gen.language,"EN") == 0 ) { // Standard font
-    day_vert_offset = 0;
-  } else if ( strcmp(lang_gen.language,"RU") == 0 ) { // Unicode font w/ Cyrillic characters
+  if ( strcmp(lang_gen.language,"RU") == 0 ) { // Unicode font w/ Cyrillic characters
     day_vert_offset = -2;
+  } else { // Standard font
+    day_vert_offset = 0;
   }
   layer_set_frame( text_layer_get_layer(day_layer), GRect(REL_CLOCK_DATE_LEFT, REL_CLOCK_SUBTEXT_TOP + day_vert_offset, DEVICE_WIDTH, REL_CLOCK_DATE_HEIGHT) );
 }
@@ -1080,15 +1080,7 @@ static void handle_bluetooth(bool connected) {
 }
 
 static void set_unifont() {
-  if ( strcmp(lang_gen.language,"EN") == 0 ) { // Standard font
-    // set fonts...
-    text_layer_set_font(day_layer,fonts_get_system_font(FONT_KEY_GOTHIC_14));
-    text_layer_set_font(text_connection_layer,fonts_get_system_font(FONT_KEY_GOTHIC_18));
-    text_layer_set_font(date_layer,fonts_get_system_font(FONT_KEY_GOTHIC_24));
-    // set fonts, for calendar
-    cal_normal = fonts_get_system_font(FONT_KEY_GOTHIC_14); // fh = 16
-    cal_bold   = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD); // fh = 22
-  } else if ( strcmp(lang_gen.language,"RU") == 0 ) { // Unicode font w/ Cyrillic characters
+  if ( strcmp(lang_gen.language,"RU") == 0 ) { // Unicode font w/ Cyrillic characters
     // set fonts...
     text_layer_set_font(day_layer,unifont_14);
     text_layer_set_font(text_connection_layer, unifont_18);
@@ -1096,6 +1088,14 @@ static void set_unifont() {
     // set fonts, for calendar
     cal_normal = unifont_14; // fh = 16
     cal_bold   = unifont_18_bold; // fh = 22 // XXX TODO need a bold unicode/unifont option... maybe invert it or box it or something?
+  } else { // Standard font
+    // set fonts...
+    text_layer_set_font(day_layer,fonts_get_system_font(FONT_KEY_GOTHIC_14));
+    text_layer_set_font(text_connection_layer,fonts_get_system_font(FONT_KEY_GOTHIC_18));
+    text_layer_set_font(date_layer,fonts_get_system_font(FONT_KEY_GOTHIC_24));
+    // set fonts, for calendar
+    cal_normal = fonts_get_system_font(FONT_KEY_GOTHIC_14); // fh = 16
+    cal_bold   = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD); // fh = 22
   }
   // set offsets...
   position_connection_layer();
