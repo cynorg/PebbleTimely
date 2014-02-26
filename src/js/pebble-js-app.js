@@ -4,17 +4,17 @@ Pebble.addEventListener("ready", function (e) {
 
 Pebble.addEventListener("showConfiguration", function () {
     console.log("Configuration window launching...");
-    var options, baseURL, pebtok, nocache;
-    options = { 'web': { 'lang': 'EN' } };
+    var baseURL, pebtok, nocache;
     baseURL = 'http://www.cyn.org/pebble/timely/';
     pebtok  = '&pat=' + Pebble.getAccountToken();
     nocache = '&_=' + new Date().getTime();
-    if (window.localStorage.timely_options !== undefined) { options = JSON.parse(window.localStorage.timely_options); }
-    console.log("Language: " + options.web.lang);
+    if (window.localStorage.timely_options !== undefined) {
+        options = JSON.parse(window.localStorage.timely_options);
+    }
     if (window.localStorage.version_config !== undefined) {
-        Pebble.openURL(baseURL + window.localStorage.version_config + ".php" + '?lang=' + options.web.lang + pebtok + nocache);
+        Pebble.openURL(baseURL + window.localStorage.version_config + ".php?" + pebtok + nocache);
     } else { // in case we never received the message / new install
-        Pebble.openURL(baseURL + "2.2.1.php" + '?lang=' + options.web.lang + pebtok + nocache);
+        Pebble.openURL(baseURL + "2.2.2.php?" + pebtok + nocache);
     }
 });
 

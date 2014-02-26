@@ -1,10 +1,10 @@
 {
   "uuid": "55f7744b-f586-45b8-854c-554f34489f20",
   "shortName": "Timely",
-  "longName": "Timely 2.2a",
+  "longName": "Timely 2.2b",
   "companyName": "Martin Norland (@cynorg)",
   "versionCode": 2,
-  "versionLabel": "2.2.1",
+  "versionLabel": "2.2.2",
   "watchapp": {
     "watchface": true
   },

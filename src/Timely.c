@@ -923,7 +923,7 @@ static void watch_version_send(void *data) {
   if (dict_write_uint8(iter, AK_SEND_WATCH_VERSION, settings.version) != DICT_OK) {
     return;
   }
-  if (dict_write_cstring(iter, AK_SEND_CONFIG_VERSION, "2.2.1") != DICT_OK) {
+  if (dict_write_cstring(iter, AK_SEND_CONFIG_VERSION, "2.2.2") != DICT_OK) {
     return;
   }
   app_message_outbox_send();
