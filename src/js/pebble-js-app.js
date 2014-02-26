@@ -14,7 +14,7 @@ Pebble.addEventListener("showConfiguration", function () {
     if (window.localStorage.version_config !== undefined) {
         Pebble.openURL(baseURL + window.localStorage.version_config + ".php" + '?lang=' + options.web.lang + pebtok + nocache);
     } else { // in case we never received the message / new install
-        Pebble.openURL(baseURL + "2.2.0.php" + '?lang=' + options.web.lang + pebtok + nocache);
+        Pebble.openURL(baseURL + "2.2.1.php" + '?lang=' + options.web.lang + pebtok + nocache);
     }
 });
 
