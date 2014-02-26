@@ -108,25 +108,25 @@
       },
       {
         "type": "font",
-        "characterRegex": "[\u0020-\u007e\u0400-\u0451\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u00ff\u2026]",
+        "characterRegex": "[\u0020-\u007e\u0400-\u0460\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u00ff\u2026]",
         "name": "FONT_UNICODE_FB_14",
         "file": "fonts/unifont_latest.ttf"
       },
       {
         "type": "font",
-        "characterRegex": "[\u0020-\u007e\u0400-\u0451\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u00ff\u2026]",
+        "characterRegex": "[\u0020-\u007e\u0400-\u0460\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u00ff\u2026]",
         "name": "FONT_UNICODE_FB_BOLD_16",
         "file": "fonts/unifont_latest.ttf"
       },
       {
         "type": "font",
-        "characterRegex": "[\u0020-\u007e\u0400-\u0451\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u00ff\u2026]",
+        "characterRegex": "[\u0020-\u007e\u0400-\u0460\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u00ff\u2026]",
         "name": "FONT_UNICODE_FB_16",
         "file": "fonts/unifont_latest.ttf"
       },
       {
         "type": "font",
-        "characterRegex": "[\u0020-\u007e\u0400-\u0451\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u00ff\u2026]",
+        "characterRegex": "[\u0020-\u007e\u0400-\u0460\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u00ff\u2026]",
         "name": "FONT_UNICODE_FB_18",
         "file": "fonts/unifont_latest.ttf"
       }
