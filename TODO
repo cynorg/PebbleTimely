@@ -5,9 +5,12 @@ Watchface
   - respect DND period (when exposed in SDK)
   - hourly vibrations period (e.g. 9am - 5pm?)
   New Features
+    - hide statusbar and reposition slots (or repurpose the statusbar for other information) when:
+      - battery > X% (user defined)
+      - link is good
+      - not charging
     - display notice if there's a newer version available?
     - seconds display
-      - optional, below time
       - horizontal bar for seconds?
     - Alarm
     - Charge history
@@ -23,14 +26,20 @@ Watchface
         - Configuration for which slots are visible under what conditions
       - Idle timer - reminder to stay active, configure inactivity period + vibe + sensitivity
         - Sleep tracking?  (extension of idle tracking, requires LOTS of work)
+  - better free unicode font
+    - using unifont
+      - http://www.czyborra.com/unifont/ / http://unifoundry.com/unifont.html
+      - nice and small, but @ 14 there are some glyph artifacts/errors, it was designed for 8x16/16x16
+    - Deja Vu Sans Mono...
+      - http://dejavu-fonts.org/wiki/Download
+      - too big...
+    - https://www.google.com/fonts/earlyaccess
+      - https://code.google.com/p/noto/
+    - http://pebblebits.com/fonts/
 
 HTML configuration page
-  - Entire page generated dynamically from metadata
-  - select language @ top, localize entire page
-    - change values based on language
+  - Android has issues with the radio groups, may need to use selects, or have everything vertical
   - embedded rather than hosted?  e.g. https://github.com/bertfreudenberg/PebbleONE/blob/master/wscript
     - not a great idea, with current IOS restrictions...
   - version clearly displayed @ top of config page
     - display notice if there's a newer version available?
- - expose more datetime formats
-    - I've got nearly 50 pre-canned in the WF, some with localized strings, but no good way to present them to the user...
