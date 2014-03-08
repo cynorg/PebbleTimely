@@ -318,8 +318,7 @@ void calendar_layer_update_callback(Layer *me, GContext* ctx) {
     int mon = currentTime->tm_mon;
     int year = currentTime->tm_year + 1900;
     int daysThisMonth = daysInMonth(mon, year);
-    int specialDay = currentTime->tm_wday - settings.dayOfWeekOffset;
-    if (specialDay < 0) { specialDay += 7; }
+    int specialDay = currentTime->tm_wday - settings.dayOfWeekOffset; // specialDay is the column [0-6] which holds the current day
     /* We're going to build an array to hold the dates to be shown in the calendar.
      *
      * There are five 'parts' we'll calculate for this (though since we only display 3 weeks, we'll only ever see at most 4 of them)
@@ -332,25 +331,23 @@ void calendar_layer_update_callback(Layer *me, GContext* ctx) {
      *
      *  daysPriorToToday + 1 + daysAfterToday = 21, since we display exactly 3 weeks.
      */
-    int show_last = 1; // show last week?
-    int show_next = 1; // show next week?
+    int show_last = 1; // number of previous weeks to show 0-2: TODO - configuration
+    int show_next = 1; // number of future weeks to show 0-2: TODO - configuration
     int calendar[21];
     int cellNum = 0;   // address for current day table cell: 0-20
     int daysVisPrevMonth = 0;
     int daysVisNextMonth = 0;
-    int daysPriorToToday = 7 + currentTime->tm_wday - settings.dayOfWeekOffset;
-    int daysAfterToday   = 6 - currentTime->tm_wday + settings.dayOfWeekOffset;
+    int daysPriorToToday = specialDay;
+    int daysAfterToday   = 6 - specialDay;
 
     // tm_wday is based on Sunday being the startOfWeek, but Sunday may not be our startOfWeek.
     if (currentTime->tm_wday < settings.dayOfWeekOffset) { 
-      if (show_last) {
-        daysPriorToToday += 7; // we're <7, so in the 'first' week due to startOfWeek offset - 'add a week' before this one
-      }
+        daysPriorToToday += 7 * (show_last+1); // we're <7, so in the 'first' week due to startOfWeek offset - 'add a week' before this one
+        specialDay += 7;
     } else {
-      if (show_next) {
-        daysAfterToday += 7;   // otherwise, we're already in the second week, so 'add a week' after
-      }
+      daysPriorToToday += 7 * show_last; // 0 = unchanged
     }
+    daysAfterToday += 7 * show_next; // 0 = unchanged
 
     if ( daysPriorToToday >= currentTime->tm_mday ) {
       // We're showing more days before today than exist this month
@@ -389,6 +386,8 @@ void calendar_layer_update_callback(Layer *me, GContext* ctx) {
       calendar[cellNum] = i + 1;
     }
 
+    if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Calendar - DOWO: %d, wday: %d, sDay: %d, dVPM: %d, dVNM: %d, dPTT: %d, dAT: %d", settings.dayOfWeekOffset, currentTime->tm_wday, specialDay, daysVisPrevMonth, daysVisNextMonth, daysPriorToToday, daysAfterToday); }
+
 // ---------------------------
 // Now that we've calculated which days go where, we'll move on to the display logic.
 // ---------------------------
@@ -399,9 +398,7 @@ void calendar_layer_update_callback(Layer *me, GContext* ctx) {
     #define CAL_LEFT   2   // left side of calendar
     #define CAL_HEIGHT 18  // How tall rows should be depends on how many weeks there are
 
-    int weeks  =  3;  // always display 3 weeks: previous, current, next
-    if (!show_last) { weeks--; }
-    if (!show_next) { weeks--; }
+    int weeks  =  3;  // always display 3 weeks: # previous, current, # next
         
     GFont current = cal_normal;
     int font_vert_offset = 0;
@@ -447,12 +444,12 @@ void calendar_layer_update_callback(Layer *me, GContext* ctx) {
 
     // draw the individual calendar rows/columns
     int week = 0;
+    int specialRow = show_last+1;
+    
     for (int row = 1; row <= 3; row++) {
-      if (row == 1 && !show_last) { continue; }
-      if (row == 3 && !show_next) { continue; }
       week++;
       for (int col = 0; col < CAL_DAYS; col++) {
-        if ( row == 2 && col == specialDay) {
+        if ( row == specialRow && col == specialDay) {
           if (settings.day_invert) {
             setInvColors(ctx);
           }
@@ -468,7 +465,7 @@ void calendar_layer_update_callback(Layer *me, GContext* ctx) {
         snprintf(date_text, sizeof(date_text), "%d", calendar[col + 7 * (row - 1)]);
         graphics_draw_text(ctx, date_text, current, GRect(CAL_WIDTH * col + CAL_LEFT, CAL_HEIGHT * week - CAL_GAP + font_vert_offset, CAL_WIDTH, CAL_HEIGHT), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL); 
 
-        if ( row == 2 && col == specialDay) {
+        if ( row == specialRow && col == specialDay) {
           setColors(ctx);
           current = normal;
           font_vert_offset = 0;
