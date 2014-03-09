@@ -1209,7 +1209,7 @@ static void window_load(Window *window) {
   text_layer_set_background_color(text_connection_layer, GColorClear);
   text_layer_set_font(text_connection_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18));
   text_layer_set_text_alignment(text_connection_layer, GTextAlignmentLeft);
-  text_layer_set_text(text_connection_layer, "NO LINK");
+  update_connection();
   position_connection_layer(); // depends on font/language
   layer_add_child(statusbar, text_layer_get_layer(text_connection_layer));
 
