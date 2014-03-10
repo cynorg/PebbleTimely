@@ -13,6 +13,8 @@
  *
  */
 
+static char config_version[] = "2.2.3";
+
 static Window *window;
 
 static Layer *battery_layer;
@@ -70,6 +72,7 @@ static int8_t seconds_shown = 0;
 #define PK_LANG_MONTHS   3
 #define PK_LANG_DAYS     4
 #define PK_DEBUGGING     5
+#define PK_ADV_SETTINGS  6
 
 // define the appkeys used for appMessages
 #define AK_STYLE_INV     0
@@ -89,6 +92,7 @@ static int8_t seconds_shown = 0;
 #define AK_TRACK_BATTERY         14 // UNUSED
 #define AK_LANGUAGE              15
 #define AK_DEBUGLANG_ON          16
+#define AK_CAL_WEEK_PATTERN      17
 
 #define AK_MESSAGE_TYPE          99
 #define AK_SEND_BATT_PERCENT    100
@@ -221,6 +225,37 @@ typedef struct persist_debug { // 6 bytes
   bool reserved_4;           // debugging messages (reserved to spare updates later)
 } __attribute__((__packed__)) persist_debug;
 
+typedef struct persist_adv_settings { // 243 bytes
+  uint8_t week_pattern;    //  1 byte
+  uint8_t invertStatBar;   //  1 byte
+  uint8_t invertTopSlot;   //  1 byte
+  uint8_t invertBotSlot;   //  1 byte
+  uint8_t showStatus;      //  1 byte
+  uint8_t showStatusBat;   //  1 byte
+  uint8_t showDate;        //  1 byte
+  uint8_t DND_start;       //  1 byte
+  uint8_t DND_stop;        //  1 byte
+  uint8_t DND_accel_off;   //  1 byte
+  uint8_t vibe_hour_start; //  1 byte
+  uint8_t vibe_hour_stop;  //  1 byte
+  uint8_t vibe_hour_days;  //  1 byte
+  uint8_t idle_reminder;   //  1 byte
+  uint8_t idle_pattern;    //  1 byte
+  char idle_message[32];   // 32 bytes
+  uint8_t idle_start;      //  1 byte
+  uint8_t idle_stop;       //  1 byte
+  int8_t clock2_tz;        //  1 byte
+  char clock2_desc[32];    // 32 bytes
+  uint8_t weather_format;  //  1 byte
+  uint8_t weather_update;  //  1 byte
+  char weather_lat[8];     //  8 bytes
+  char weather_lon[8];     //  8 bytes
+  uint8_t clock_font;      //  1 byte
+  uint8_t token_type[2];   //  2 bytes
+  char token_code[2][65];  //130 bytes
+  uint8_t slots[10];       // 10 bytes
+} __attribute__((__packed__)) persist_adv_settings;
+
 /*
 */
 
@@ -265,6 +300,50 @@ persist_debug debug = {
   .reserved_2 = false,  // debugging disabled by default
   .reserved_3 = false,  // debugging disabled by default
   .reserved_4 = false,  // debugging disabled by default
+};
+
+persist_adv_settings adv_settings = {
+  // Calendar week pattern - which weeks to show
+  .week_pattern = 0,    // 0:lcn, 1:llc, 2:cnn, 3:lc, 4:cn, 5:c
+  // Inversions
+  .invertStatBar = 0,   // 1: invert Statusbar
+  .invertTopSlot = 0,   // 1: invert Top Slot
+  .invertBotSlot = 0,   // 1: invert Bottom Slot 
+  // Status bar auto-hiding...
+  .showStatus = 1,      // Status: 0: never(!?), 1: always, 2: minimal, 3: only when disconnected/charging, 4: minimal #3
+  .showStatusBat = 100, // Status: battery percentage above which to hide statusbar if hiding it is allowed
+  // Date hiding... because I didn't reserve 0 in date_format ;)
+  .showDate = 1,        // Date: 0: never, 1: always
+  // DND start/stop (suppress vibrations, Weather updates, pretty much anything except updating the time)
+    // ...hopefully this will become pointless with a SDK update which exposes the watches DND...
+  .DND_start = 0,       // Do Not Disturb: 10 minute increments, 0 = 12:00am, 144 = 12:00am (following day)
+  .DND_stop  = 0,       // Do Not Disturb: 10 minute increments, 0 = 12:00am, 144 = 12:00am (following day)
+  .DND_accel_off = 0,   // Do Not Disturb: disable accelerometer polling during DND?
+  // hourly vibration start/stop
+  .vibe_hour_start = 0, // Hour Vibe: 10 minute increments, 0 = 12:00am, 144 = 12:00am (following day)
+  .vibe_hour_stop  = 0, // Hour Vibe: 10 minute increments, 0 = 12:00am, 144 = 12:00am (following day)
+  .vibe_hour_days  = 0, // Hour Vibe: days active [Su 1, Mo 2, Tu 4, We 8, Th 16, Fr 32, Sa 64 => 0 => 127]
+  // Idle reminders (accelerometer)
+  .idle_reminder = 0,   // Idle: 0 = off; minutes 1 - 255 (0:01 to 4:15; 4 1/4 hours = meal/bathroom reminder, haha)
+  .idle_pattern = 0,    // Idle: vibration pattern
+  .idle_message = { "Let's Move!" }, // Idle: reminder message
+  .idle_start = 0,      // Idle: 10 minute increments, 0 = 12:00am, 143 = 12:00am (following day)
+  .idle_stop  = 0,      // Idle: 10 minute increments, 0 = 12:00am, 143 = 12:00am (following day)
+  // Second Clock
+  .clock2_tz = 0,       // 2nd clock: tz offset in 15 minute increments
+  .clock2_desc = { "Second Clock" }, // 2nd clock: desc / city name of 2nd clock
+  // Weather
+  .weather_format = 0,  // Weather: 0: celsius, 1: fahrenheit
+  .weather_update = 15, // Weather: minutes between weather updates
+  .weather_lat = "",    // latitude for 'static' weather lookups (GPS disabled)
+  .weather_lon = "",   // longitude for 'static' weather lookups (GPS disabled)
+  // Font
+  .clock_font = 1,      // 1: default, 2: ?
+  // Tokencode
+  .token_type = { 0, 0 },   // Token: Google/other tokencode(s)
+  .token_code = { "", "" }, // Token: Tokencode/seed
+  // Slots... will require either app mode or fancy acceleration to access this many slots ;)
+  .slots = { 0, 1, 2, 3, 0, 1, 0, 1, 0, 1 } // 0 = clock_1, 1 = calendar, 2 = weather, 3 = forecast
 };
 
 // How many days are/were in the month
@@ -331,8 +410,30 @@ void calendar_layer_update_callback(Layer *me, GContext* ctx) {
      *
      *  daysPriorToToday + 1 + daysAfterToday = 21, since we display exactly 3 weeks.
      */
-    int show_last = 1; // number of previous weeks to show 0-2: TODO - configuration
-    int show_next = 1; // number of future weeks to show 0-2: TODO - configuration
+    int show_last = 1; // number of previous weeks to show 0-2
+    int show_next = 1; // number of future weeks to show 0-2
+    switch ( adv_settings.week_pattern ) {
+      case 0:
+        break;
+      case 1:
+        show_last = 2; show_next = 0;
+        break;
+      case 2:
+        show_last = 0; show_next = 2;
+        break;
+/* FIXME: not presently implemented to support this... need to calculate weeks and adjust how we do 'rows' below...
+      case 3:
+        show_last = 1; show_next = 0;
+        break;
+      case 4:
+        show_last = 0; show_next = 1;
+        break;
+      case 5:
+        show_last = 0; show_next = 0;
+        break;
+*/
+    }
+
     int calendar[21];
     int cellNum = 0;   // address for current day table cell: 0-20
     int daysVisPrevMonth = 0;
@@ -920,7 +1021,7 @@ static void watch_version_send(void *data) {
   if (dict_write_uint8(iter, AK_SEND_WATCH_VERSION, settings.version) != DICT_OK) {
     return;
   }
-  if (dict_write_cstring(iter, AK_SEND_CONFIG_VERSION, "2.2.2") != DICT_OK) {
+  if (dict_write_cstring(iter, AK_SEND_CONFIG_VERSION, config_version) != DICT_OK) {
     return;
   }
   app_message_outbox_send();
@@ -1491,6 +1592,12 @@ void in_configuration_handler(DictionaryIterator *received, void *context) {
       }
     }
 
+    // AK_CAL_WEEK_PATTERN == which weeks are shown in calendar (last,current,next - etc.)
+    Tuple *week_pattern = dict_find(received, AK_CAL_WEEK_PATTERN);
+    if (week_pattern != NULL) {
+      adv_settings.week_pattern = week_pattern->value->uint8;
+    }
+
     // begin translations...
     Tuple *translation;
 
@@ -1572,6 +1679,8 @@ void in_configuration_handler(DictionaryIterator *received, void *context) {
     if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Wrote %d bytes into lang_days", result); }
     result = persist_write_data(PK_DEBUGGING, &debug, sizeof(debug) );
     if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Wrote %d bytes into debug", result); }
+    result = persist_write_data(PK_ADV_SETTINGS, &adv_settings, sizeof(adv_settings) );
+    if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Wrote %d bytes into adv_settings", result); }
 
     // ==== Implemented SDK ====
     // Battery
@@ -1710,6 +1819,9 @@ static void init(void) {
     }
     if (persist_exists(PK_DEBUGGING)) {
       persist_read_data(PK_DEBUGGING, &debug, sizeof(debug) );
+    }
+    if (persist_exists(PK_ADV_SETTINGS)) {
+      persist_read_data(PK_ADV_SETTINGS, &adv_settings, sizeof(adv_settings) );
     }
   }
   // re-initialize this, if it was set, since we're storing those values persistently as well...
