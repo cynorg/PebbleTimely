@@ -108,6 +108,11 @@
         "file": "images/hourvibe_20_20.png"
       },
       {
+        "type": "png",
+        "name": "IMAGE_DONOTDISTURB_ICON",
+        "file": "images/donotdisturb_20_20.png"
+      },
+      {
         "type": "font",
         "characterRegex": "[\u0020-\u007e\u0400-\u0460\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u00ff\u2026]",
         "name": "FONT_UNICODE_FB_14",

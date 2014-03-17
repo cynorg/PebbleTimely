@@ -41,6 +41,7 @@ static GBitmap *image_noconnection_icon;
 static BitmapLayer *bmp_charging_layer;
 static GBitmap *image_charging_icon;
 static GBitmap *image_hourvibe_icon;
+static GBitmap *image_dnd_icon;
 static TextLayer *text_connection_layer;
 static TextLayer *text_battery_layer;
 
@@ -577,7 +578,6 @@ void calendar_layer_update_callback(Layer *me, GContext* ctx) {
 
 void update_date_text() {
 
-    // TODO - 18 @ this font is approaching the max width, localization may require smaller fonts, or no year...
     //September 11, 2013 => 18 chars, 9 of which could potentially be dual byte utf8 characters
     //123456789012345678
 
@@ -1071,6 +1071,25 @@ static void battery_status_send(void *data) {
   battery_sending = NULL;
 }
 
+void set_status_charging_icon() {
+  // this icon shows either DND, hourly vibration, or charging...
+  if (battery_charging) { // charging
+    layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), false);
+    bitmap_layer_set_bitmap(bmp_charging_layer, image_charging_icon);
+  } else { // not charging
+    if (battery_plugged) { // plugged but not charging = charging complete...
+      layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), true);
+    } else { // normal wear
+      if (settings.vibe_hour) {
+        layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), false);
+        bitmap_layer_set_bitmap(bmp_charging_layer, image_hourvibe_icon);
+      } else {
+        layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), true);
+      }
+    }
+  }
+}
+
 static void handle_battery(BatteryChargeState charge_state) {
   static char battery_text[] = "100";
 
@@ -1090,21 +1109,8 @@ static void handle_battery(BatteryChargeState charge_state) {
     if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "battery timer queued"); }
   }
 
-  if (charge_state.is_charging) { // charging
-    layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), false);
-    bitmap_layer_set_bitmap(bmp_charging_layer, image_charging_icon);
-  } else { // not charging
-    if (charge_state.is_plugged) { // plugged but not charging = charging complete...
-      layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), true);
-    } else { // normal wear
-      if (settings.vibe_hour) {
-        layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), false);
-        bitmap_layer_set_bitmap(bmp_charging_layer, image_hourvibe_icon);
-      } else {
-        layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), true);
-      }
-    }
-  }
+  set_status_charging_icon();
+
   snprintf(battery_text, sizeof(battery_text), "%d", charge_state.charge_percent);
   text_layer_set_text(text_battery_layer, battery_text);
   layer_mark_dirty(battery_layer);
@@ -1238,11 +1244,9 @@ static void window_load(Window *window) {
   layer_add_child(statusbar, bitmap_layer_get_layer(bmp_charging_layer));
   image_charging_icon = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_CHARGING_ICON);
   image_hourvibe_icon = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_HOURVIBE_ICON);
-  if (settings.vibe_hour) {
-    bitmap_layer_set_bitmap(bmp_charging_layer, image_hourvibe_icon);
-  } else {
-    layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), true);
-  }
+  image_dnd_icon = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_DONOTDISTURB_ICON);
+
+  set_status_charging_icon();
 
   battery_layer = layer_create(stat_bounds);
   layer_set_update_proc(battery_layer, battery_layer_update_callback);
@@ -1364,6 +1368,7 @@ static void window_unload(Window *window) {
   gbitmap_destroy(image_noconnection_icon);
   gbitmap_destroy(image_charging_icon);
   gbitmap_destroy(image_hourvibe_icon);
+  gbitmap_destroy(image_dnd_icon);
   layer_destroy(slot_bot);
   layer_destroy(slot_top);
   layer_destroy(statusbar);
@@ -1377,10 +1382,53 @@ static void deinit(void) {
   window_destroy(window);
 }
 
+bool period_check(uint8_t start_incr, uint8_t stop_incr) {
+  // takes two periods (uint8_t 0-144) in 10 minute increments, and returns whether the current time falls inside them.
+  if (start_incr == stop_incr) { return false; }
+  bool inside_period = false;
+  if (start_incr > stop_incr) { // period crosses midnight of the day, we'll use a negative match on the reversed period
+    inside_period = true;
+    uint8_t swap_incrs = stop_incr;
+    start_incr = stop_incr;
+    stop_incr = swap_incrs;
+  }
+//  -----
+  uint8_t start_min = (start_incr % 6);
+  uint8_t stop_min  = (stop_incr % 6);
+  uint8_t start_hour = (start_incr - start_min) / 6;;
+  uint8_t stop_hour  = (stop_incr - stop_min) / 6;;
+  start_min = start_min * 10;
+  stop_min  = stop_min * 10;
+//  -----
+  if (currentTime->tm_hour >= start_hour && currentTime->tm_hour <= stop_hour) {
+    if (currentTime->tm_min >= start_min && currentTime->tm_min <= stop_min) {
+      inside_period = !inside_period; // flip the bool
+    }
+  }
+  return inside_period;
+}
+
+bool dnd_period_check() {
+  // TODO - adv_settings.DND_accel_off = 0,   // Do Not Disturb: disable accelerometer polling during DND?
+  return period_check(adv_settings.DND_start, adv_settings.DND_stop);
+}
+bool hourvibe_period_check() {
+  // TODO - adv_settings.vibe_hour_days  = 0, // Hour Vibe: days active [Su 1, Mo 2, Tu 4, We 8, Th 16, Fr 32, Sa 64 => 0 => 127]
+  return period_check(adv_settings.vibe_hour_start, adv_settings.vibe_hour_stop);
+}
+
 void handle_minute_tick(struct tm *tick_time, TimeUnits units_changed)
 {
   currentTime = tick_time;
   update_time_text();
+  if (dnd_period_check()) {
+    vibe_suppression = true;
+    layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), false);
+    bitmap_layer_set_bitmap(bmp_charging_layer, image_dnd_icon);
+  } else {
+    vibe_suppression = false;
+    set_status_charging_icon();
+  }
 
   if (units_changed & MONTH_UNIT) {
     update_date_text();
@@ -1389,8 +1437,8 @@ void handle_minute_tick(struct tm *tick_time, TimeUnits units_changed)
   if (units_changed & HOUR_UNIT) {
     request_timezone(NULL);
     update_datetime_subtext();
-    if (settings.vibe_hour) {
-      generate_vibe(settings.vibe_hour);
+    if (settings.vibe_hour && hourvibe_period_check()) {
+      generate_vibe(settings.vibe_hour); // will be suppressed if within DND
     }
   }
 
@@ -1506,12 +1554,7 @@ void in_configuration_handler(DictionaryIterator *received, void *context) {
     Tuple *vibe_hour = dict_find(received, AK_VIBE_HOUR);
     if (vibe_hour != NULL) {
       settings.vibe_hour = vibe_hour->value->uint8;
-      if (settings.vibe_hour && !battery_plugged) {
-        layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), false);
-        bitmap_layer_set_bitmap(bmp_charging_layer, image_hourvibe_icon);
-      } else if (!battery_charging) {
-        layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), true);
-      }
+      set_status_charging_icon();
     }
 
     // INTL_DOWO == dayOfWeekOffset
