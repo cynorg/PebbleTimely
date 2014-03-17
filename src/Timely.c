@@ -1388,7 +1388,7 @@ bool period_check(uint8_t start_incr, uint8_t stop_incr) {
   bool inside_period = false;
   if (start_incr > stop_incr) { // period crosses midnight of the day, we'll use a negative match on the reversed period
     inside_period = true;
-    uint8_t swap_incrs = stop_incr;
+    uint8_t swap_incrs = start_incr;
     start_incr = stop_incr;
     stop_incr = swap_incrs;
   }
