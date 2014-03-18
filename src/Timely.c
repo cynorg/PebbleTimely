@@ -65,6 +65,8 @@ static bool vibe_suppression = true;
 static int8_t timezone_offset = TIMEZONE_UNINITIALIZED;
 struct tm *currentTime;
 static int8_t seconds_shown = 0;
+static bool dnd_period_active = false;
+static bool vibe_period_active = false;
 
 // define the persistent storage key(s)
 #define PK_SETTINGS      0
@@ -1077,14 +1079,19 @@ void set_status_charging_icon() {
     layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), false);
     bitmap_layer_set_bitmap(bmp_charging_layer, image_charging_icon);
   } else { // not charging
-    if (battery_plugged) { // plugged but not charging = charging complete...
-      layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), true);
-    } else { // normal wear
-      if (settings.vibe_hour) {
-        layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), false);
-        bitmap_layer_set_bitmap(bmp_charging_layer, image_hourvibe_icon);
-      } else {
+    if (dnd_period_active) {
+      layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), false);
+      bitmap_layer_set_bitmap(bmp_charging_layer, image_dnd_icon);
+    } else {
+      if (battery_plugged) { // plugged but not charging = charging complete...
         layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), true);
+      } else { // normal wear
+        if (settings.vibe_hour && vibe_period_active) {
+          layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), false);
+          bitmap_layer_set_bitmap(bmp_charging_layer, image_hourvibe_icon);
+        } else {
+          layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), true);
+        }
       }
     }
   }
@@ -1208,6 +1215,39 @@ static void set_unifont() {
   position_day_layer();
 }
 
+bool period_check(uint8_t start_incr, uint8_t stop_incr) {
+  // takes two periods (uint8_t 0-144) in 10 minute increments, and returns whether the current time falls inside them.
+  // periods are fully inclusive, presently
+  if (start_incr == stop_incr) { return false; }
+  bool inside_period = false;
+  uint8_t current_min_incr = (currentTime->tm_min - (currentTime->tm_min%10))/10;
+  uint8_t current_incr = currentTime->tm_hour * 6 + current_min_incr;
+  if (start_incr > stop_incr) { // period crosses midnight of the day
+    if (current_incr >= start_incr || current_incr <= stop_incr) {
+      inside_period = true;
+    }
+  } else { // period occurs within a single day
+    if (current_incr >= start_incr && current_incr <= stop_incr) {
+      inside_period = true;
+    }
+  }
+  if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Period Check... %d <= %d <= %d == %d*", start_incr, current_incr, stop_incr, (int)inside_period); }
+  return inside_period;
+}
+
+bool dnd_period_check() {
+  // TODO - adv_settings.DND_accel_off = 0,   // Do Not Disturb: disable accelerometer polling during DND?
+  dnd_period_active = period_check(adv_settings.DND_start, adv_settings.DND_stop);
+  if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Tested DND period... %d", (int)dnd_period_active); }
+  return dnd_period_active;
+}
+bool hourvibe_period_check() {
+  // TODO - adv_settings.vibe_hour_days  = 0, // Hour Vibe: days active [Su 1, Mo 2, Tu 4, We 8, Th 16, Fr 32, Sa 64 => 0 => 127]
+  vibe_period_active = period_check(adv_settings.vibe_hour_start, adv_settings.vibe_hour_stop);
+  if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Tested vibe period... %d", (int)vibe_period_active); }
+  return vibe_period_active;
+}
+
 static void window_load(Window *window) {
 
   unifont_14 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_UNICODE_FB_16));
@@ -1246,6 +1286,8 @@ static void window_load(Window *window) {
   image_hourvibe_icon = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_HOURVIBE_ICON);
   image_dnd_icon = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_DONOTDISTURB_ICON);
 
+  dnd_period_check();
+  hourvibe_period_check();
   set_status_charging_icon();
 
   battery_layer = layer_create(stat_bounds);
@@ -1382,52 +1424,27 @@ static void deinit(void) {
   window_destroy(window);
 }
 
-bool period_check(uint8_t start_incr, uint8_t stop_incr) {
-  // takes two periods (uint8_t 0-144) in 10 minute increments, and returns whether the current time falls inside them.
-  if (start_incr == stop_incr) { return false; }
-  bool inside_period = false;
-  if (start_incr > stop_incr) { // period crosses midnight of the day, we'll use a negative match on the reversed period
-    inside_period = true;
-    uint8_t swap_incrs = start_incr;
-    start_incr = stop_incr;
-    stop_incr = swap_incrs;
+void handle_vibe_suppression() {
+  // control vibe_suppression events - we should never set vibe_suppression to false outside of this function
+  // it is useful to set it true directly (briefly), to ensure suppression, and then call this function afterwards
+  if (dnd_period_active) {
+    vibe_suppression = true;
+  } else if (settings.vibe_hour && vibe_period_active) {
+    vibe_suppression = false;
+  } else {
+    vibe_suppression = false;
   }
-//  -----
-  uint8_t start_min = (start_incr % 6);
-  uint8_t stop_min  = (stop_incr % 6);
-  uint8_t start_hour = (start_incr - start_min) / 6;;
-  uint8_t stop_hour  = (stop_incr - stop_min) / 6;;
-  start_min = start_min * 10;
-  stop_min  = stop_min * 10;
-//  -----
-  if (currentTime->tm_hour >= start_hour && currentTime->tm_hour <= stop_hour) {
-    if (currentTime->tm_min >= start_min && currentTime->tm_min <= stop_min) {
-      inside_period = !inside_period; // flip the bool
-    }
-  }
-  return inside_period;
-}
-
-bool dnd_period_check() {
-  // TODO - adv_settings.DND_accel_off = 0,   // Do Not Disturb: disable accelerometer polling during DND?
-  return period_check(adv_settings.DND_start, adv_settings.DND_stop);
-}
-bool hourvibe_period_check() {
-  // TODO - adv_settings.vibe_hour_days  = 0, // Hour Vibe: days active [Su 1, Mo 2, Tu 4, We 8, Th 16, Fr 32, Sa 64 => 0 => 127]
-  return period_check(adv_settings.vibe_hour_start, adv_settings.vibe_hour_stop);
 }
 
 void handle_minute_tick(struct tm *tick_time, TimeUnits units_changed)
 {
   currentTime = tick_time;
   update_time_text();
-  if (dnd_period_check()) {
-    vibe_suppression = true;
-    layer_set_hidden(bitmap_layer_get_layer(bmp_charging_layer), false);
-    bitmap_layer_set_bitmap(bmp_charging_layer, image_dnd_icon);
-  } else {
-    vibe_suppression = false;
+  if (currentTime->tm_min % 10 == 0) {
+    dnd_period_check();
+    hourvibe_period_check();
     set_status_charging_icon();
+    handle_vibe_suppression();
   }
 
   if (units_changed & MONTH_UNIT) {
@@ -1437,7 +1454,7 @@ void handle_minute_tick(struct tm *tick_time, TimeUnits units_changed)
   if (units_changed & HOUR_UNIT) {
     request_timezone(NULL);
     update_datetime_subtext();
-    if (settings.vibe_hour && hourvibe_period_check()) {
+    if (settings.vibe_hour && vibe_period_active) {
       generate_vibe(settings.vibe_hour); // will be suppressed if within DND
     }
   }
@@ -1698,7 +1715,7 @@ void in_configuration_handler(DictionaryIterator *received, void *context) {
     }
     vibe_suppression = true;
     update_connection();
-    vibe_suppression = false;
+    handle_vibe_suppression();
 
     // AK_TRANS_TIME_AM / AK_TRANS_TIME_PM == AM / PM text, e.g. "AM" "PM" :), max 6 characters
     for (int i = AK_TRANS_TIME_AM; i <= AK_TRANS_TIME_PM; i++ ) {
@@ -1889,7 +1906,7 @@ static void init(void) {
   handle_battery(battery_state_service_peek()); // initialize
   bluetooth_connection_service_subscribe(&handle_bluetooth);
   handle_bluetooth(bluetooth_connection_service_peek()); // initialize
-  vibe_suppression = false;
+  handle_vibe_suppression();
 }
 
 int main(void) {
