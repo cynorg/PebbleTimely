@@ -369,7 +369,7 @@ persist_adv_settings adv_settings = {
   .clock2_tz = 0,       // 2nd clock: tz offset in 15 minute increments
   .clock2_desc = { "Second Clock" }, // 2nd clock: desc / city name of 2nd clock
   // Weather
-  .weather_format = 0,  // Weather: 0: celsius, 1: fahrenheit
+  .weather_format = 0,  // Weather: 0: fahrenheit, 1: celsius
   .weather_update = 15, // Weather: minutes between weather updates
   .weather_lat = "",    // latitude for 'static' weather lookups (GPS disabled)
   .weather_lon = "",   // longitude for 'static' weather lookups (GPS disabled)
@@ -1078,7 +1078,7 @@ void battery_layer_update_callback(Layer *me, GContext* ctx) {
 }
 
 static void request_weather(void *data) {
-  weather.condition = 'h'; // h = updating 'cloud' icon
+  strncpy(weather.condition, "h", sizeof(weather.condition)-1); // h = updating 'cloud' icon
   layer_mark_dirty(weather_layer); // update UI element to indicate we're fetching weather...
   DictionaryIterator *iter;
   AppMessageResult result = app_message_outbox_begin(&iter);
@@ -1901,14 +1901,16 @@ void in_configuration_handler(DictionaryIterator *received, void *context) {
     // AK_WEATHER_FMT == weather format (0:C / 1:F)
     appkey = dict_find(received, AK_WEATHER_FMT);
     if (appkey != NULL) {
-      // TODO: if it's changed, re-request weather? convert? 
       adv_settings.weather_format = appkey->value->uint8;
+      if (weather_request == NULL) { weather_request = app_timer_register(1000, &request_weather, NULL); }
     }
 
     // AK_WEATHER_UPDATE == weather update frequency
     appkey = dict_find(received, AK_WEATHER_UPDATE);
     if (appkey != NULL) {
-      // TODO: if it's reduced (but not 0), re-request?
+      if (appkey->value->uint8 < adv_settings.weather_update && weather_request == NULL) {
+        weather_request = app_timer_register(1000, &request_weather, NULL);
+      }
       adv_settings.weather_update = appkey->value->uint8;
     }
 
@@ -2077,6 +2079,7 @@ static void init(void) {
     if (persist_exists(PK_DEBUGGING)) {
       persist_read_data(PK_DEBUGGING, &debug, sizeof(debug) );
     }
+    //persist_write_data(PK_ADV_SETTINGS, &adv_settings, sizeof(adv_settings) ); // reset to defaults, for testing...
     if (persist_exists(PK_ADV_SETTINGS)) {
       persist_read_data(PK_ADV_SETTINGS, &adv_settings, sizeof(adv_settings) );
     }

@@ -84,10 +84,12 @@ Pebble.addEventListener("appmessage", function (e) {
 function fetchWeather(latitude, longitude) {
   var response;
   var req = new XMLHttpRequest();
-//http://api.openweathermap.org/data/2.5/find?lat=35.8415051596573&lon=-78.55771335780486&cnt=1&units=metric
-//http://api.openweathermap.org/data/2.5/find?lat=35.8415051596573&lon=-78.55771335780486&cnt=1&units=imperial
+//http://api.openweathermap.org/data/2.5/weather?lat=35.8415051596573&lon=-78.55771335780486&cnt=1&units=metric
+//http://api.openweathermap.org/data/2.5/weather?lat=35.8415051596573&lon=-78.55771335780486&cnt=1&units=imperial
+  var units = "imperial";
+  if (weatherFormat === 1) { units = "metric"; }
   req.open('GET', "http://api.openweathermap.org/data/2.5/weather?" +
-    "lat=" + latitude + "&lon=" + longitude + "&cnt=1" + "&units=imperial", true);
+    "lat=" + latitude + "&lon=" + longitude + "&cnt=1" + "&units=" + units, true);
   req.onload = function(e) {
     if (req.readyState == 4) {
       if(req.status == 200) {
