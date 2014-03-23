@@ -285,8 +285,6 @@ typedef struct persist_adv_settings { // 243 bytes
 
 typedef struct weather_data {
   int16_t current;            // current temperature
-//  int16_t today_min;          // todays low
-//  int16_t today_max;          // todays high
   char condition[2];          // weather_conditions (mapped to single character in font)
 } __attribute__((__packed__)) weather_data;
 /*
@@ -294,8 +292,6 @@ typedef struct weather_data {
 
 weather_data weather = {
   .current    = 999,
-  //.today_min = 999,
-  //.today_max = 999,
   .condition = {'h'},
 };
 
@@ -435,19 +431,14 @@ void weather_layer_update_callback(Layer *me, GContext* ctx) {
   (void)me; // 144x72
   static char temp_current[] = "000\u00b0";
   static char cond_current[] = "0";
-//  static char temp_lowhigh[] = "000/000";
   snprintf(temp_current, sizeof(temp_current), "%d\u00b0", weather.current);
   snprintf(cond_current, sizeof(cond_current), "%s", weather.condition);
-//  snprintf(temp_lowhigh, sizeof(temp_lowhigh), "%d/%d", weather.today_min, weather.today_max);
 
-    setColors(ctx);
-    graphics_draw_text(ctx, cond_current, climacons, GRect(2,16,34,34), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL); 
-    graphics_draw_text(ctx, temp_current, fonts_get_system_font(FONT_KEY_GOTHIC_24), GRect(2,42,36,36), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL); 
+  setColors(ctx);
+  graphics_draw_text(ctx, cond_current, climacons, GRect(2,16,34,34), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL); 
+  graphics_draw_text(ctx, temp_current, fonts_get_system_font(FONT_KEY_GOTHIC_24), GRect(2,42,36,36), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL); 
 
   if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Weather redrawing: %d, %s", weather.current, weather.condition); }
-//    graphics_draw_text(ctx, temp_current, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD), GRect(0,0,72,36), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL); 
-    //graphics_draw_text(ctx, temp_current, fonts_get_system_font(FONT_KEY_BITHAM_30_BLACK), GRect(0,0,72,36), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL); 
-//    graphics_draw_text(ctx, temp_lowhigh, fonts_get_system_font(FONT_KEY_GOTHIC_24), GRect(0,32,72,36), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL); 
 }
 
 void splash_layer_update_callback(Layer *me, GContext* ctx) {
@@ -1409,7 +1400,6 @@ static void window_load(Window *window) {
   layer_set_update_proc(statusbar, statusbar_layer_update_callback);
   layer_add_child(slot_status, statusbar);
   GRect stat_bounds = layer_get_bounds(statusbar);
-  //layer_set_hidden(statusbar, true); // TODO testing
 
   slot_top = layer_create(GRect(0,LAYOUT_SLOT_TOP,DEVICE_WIDTH,LAYOUT_SLOT_HEIGHT));
   layer_set_update_proc(slot_top, slot_top_layer_update_callback);
@@ -1456,12 +1446,6 @@ static void window_load(Window *window) {
 
   toggle_slot_bottom((void*)splash_layer);  // show @ start...
   bottom_toggle = app_timer_register(1000, &toggle_slot_bottom, (void*)calendar_layer); // queue calendar to reappear in 5 seconds
-
- // TODO: test reversing slots
- // layer_add_child(slot_bot, datetime_layer);
- // layer_add_child(slot_top, calendar_layer);
- // layer_add_child(slot_top, splash_layer);
- // layer_set_hidden(datetime_layer, true);
 
   date_layer = text_layer_create( GRect(REL_CLOCK_DATE_LEFT, REL_CLOCK_DATE_TOP, REL_CLOCK_DATE_WIDTH, REL_CLOCK_DATE_HEIGHT) ); // see position_date_layer()
   text_layer_set_text_color(date_layer, GColorWhite);
@@ -1684,13 +1668,8 @@ void my_out_fail_handler(DictionaryIterator *failed, AppMessageResult reason, vo
 }
 
 void in_weather_handler(DictionaryIterator *received, void *context) {
-  // TODO - should probably update some UI element to indicate we've fetched weather...
     Tuple *appkey     = dict_find(received, AK_WEATHER_TEMP);
     if (appkey != NULL)     { weather.current = appkey->value->int16; }
-//    Tuple *temp_min = dict_find(received, AK_WEATHER_TEMP_MIN);
-//    if (temp_min != NULL) { weather.today_min = temp_min->value->int16; }
-//    Tuple *temp_max = dict_find(received, AK_WEATHER_TEMP_MAX);
-//    if (temp_max != NULL) { weather.today_max = temp_max->value->int16; }
     appkey = dict_find(received, AK_WEATHER_COND);
     if (appkey != NULL)     { strncpy(weather.condition, appkey->value->cstring, sizeof(weather.condition)-1); }
     layer_mark_dirty(weather_layer);
