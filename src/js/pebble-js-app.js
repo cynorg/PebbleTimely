@@ -8,6 +8,7 @@ Pebble.addEventListener("ready", function (e) {
 //    console.log("Connect! " + e.ready);
 //    locationWatcher = window.navigator.geolocation.watchPosition(weatherLocationSuccess, locationError, locationOptions);
 //    navigator.geolocation.clearWatch(locationWatcher);
+    getWatchVersion();
 });
 
 Pebble.addEventListener("showConfiguration", function () {
@@ -21,10 +22,23 @@ Pebble.addEventListener("showConfiguration", function () {
     }
     if (window.localStorage.getItem("version_config") !== null) {
         Pebble.openURL(baseURL + window.localStorage.version_config + ".php?" + pebtok + nocache);
+        console.log(baseURL + window.localStorage.version_config + ".php?" + pebtok + nocache);
     } else { // in case we never received the message / new install
         Pebble.openURL(baseURL + "2.3.0.php?" + pebtok + nocache);
+        console.log(baseURL + "2.3.0.php?" + pebtok + nocache);
     }
 });
+
+function getWatchVersion() {
+    Pebble.sendAppMessage({ message_type: 104 },
+        function (e) {
+            console.log("Sent watch version request with transactionId=" + e.data.transactionId);
+        },
+        function (e) {
+            console.log("Unable to deliver watch version request message with transactionId=" + e.data.transactionId + " Error is: " + e.data.error.message);
+        }
+        );
+}
 
 function saveWatchVersion(e) {
     console.log("Watch Version: " + e.payload.send_watch_version);

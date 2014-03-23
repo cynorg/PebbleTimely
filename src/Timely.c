@@ -1,7 +1,7 @@
 #include <pebble.h>
 #define DEBUGLOG 0
 #define TRANSLOG 0
-#define CONFIG_VERSION "2.3.0"
+#define CONFIG_VERSION "2.3.1"
 /*
  * If you fork this code and release the resulting app, please be considerate and change all the appropriate values in appinfo.json 
  *
@@ -1239,6 +1239,7 @@ void set_status_charging_icon() {
 }
 
 static void toggle_slot_bottom(void *data) {
+  watch_version_send(NULL); // no guarantee the JS is there to receive me...
   static Layer* last = NULL;
   Layer* which = (Layer*)data;
   if (last != NULL) { layer_set_hidden(last, true); } // hide visible layer 
@@ -1466,7 +1467,7 @@ static void window_load(Window *window) {
   layer_set_hidden(splash_layer, true);
 
   toggle_slot_bottom((void*)splash_layer);  // show @ start...
-  bottom_toggle = app_timer_register(1000, &toggle_slot_bottom, (void*)calendar_layer); // queue calendar to reappear in 5 seconds
+  bottom_toggle = app_timer_register(2000, &toggle_slot_bottom, (void*)calendar_layer); // queue calendar to reappear in 2 seconds
 
   date_layer = text_layer_create( GRect(REL_CLOCK_DATE_LEFT, REL_CLOCK_DATE_TOP, REL_CLOCK_DATE_WIDTH, REL_CLOCK_DATE_HEIGHT) ); // see position_date_layer()
   text_layer_set_text_color(date_layer, GColorWhite);
@@ -1687,6 +1688,10 @@ void my_out_sent_handler(DictionaryIterator *sent, void *context) {
 void my_out_fail_handler(DictionaryIterator *failed, AppMessageResult reason, void *context) {
 // outgoing message failed
   if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "AppMessage Failed to Send: %d", reason); }
+}
+
+void in_js_ready_handler(DictionaryIterator *received, void *context) {
+    watch_version_send(NULL);
 }
 
 void in_weather_handler(DictionaryIterator *received, void *context) {
@@ -2048,6 +2053,9 @@ void my_in_rcv_handler(DictionaryIterator *received, void *context) {
   if (message_type != NULL) {
     if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Message type %d received", message_type->value->uint8); }
     switch ( message_type->value->uint8 ) {
+    case AK_SEND_WATCH_VERSION:
+      in_js_ready_handler(received, context);
+      return;
     case AK_TIMEZONE_OFFSET:
       in_timezone_handler(received, context);
       return;
@@ -2130,7 +2138,6 @@ static void init(void) {
   window_stack_push(window, false);
 
   //update_time_text();
-  watch_version_send(NULL); // no guarantee the JS is there to receive me...
 
   switch_tick_handler();
   battery_state_service_subscribe(&handle_battery);
