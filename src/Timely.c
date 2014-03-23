@@ -1,7 +1,7 @@
 #include <pebble.h>
 #define DEBUGLOG 0
 #define TRANSLOG 0
-#define CONFIG_VERSION "2.2.4"
+#define CONFIG_VERSION "2.3.0"
 /*
  * If you fork this code and release the resulting app, please be considerate and change all the appropriate values in appinfo.json 
  *
@@ -993,7 +993,7 @@ void position_time_layer() {
     time_offset = 12;
     weather_offset = 0;
   } else {
-    time_offset = 0;
+    time_offset = 2;
     weather_offset = -10;
   }
   layer_set_frame( text_layer_get_layer(time_layer), GRect(REL_CLOCK_TIME_LEFT, REL_CLOCK_TIME_TOP + time_offset, DEVICE_WIDTH, REL_CLOCK_TIME_HEIGHT) );
@@ -1011,18 +1011,46 @@ void datetime_layer_update_callback(Layer *me, GContext* ctx) {
     (void)me;
 }
 
+void statusbar_visible() {
+  if (adv_settings.showStatus == 0) {
+    showing_statusbar = false;
+  } else if (adv_settings.showStatus == 1) {
+    showing_statusbar = true;
+  } else if (battery_percent <= adv_settings.showStatusBat) {
+    showing_statusbar = true;
+  } else {
+    showing_statusbar = false;
+  }
+}
+
+void toggle_weather() {
+  if (adv_settings.weather_update) {
+    //if (!showing_statusbar) { text_layer_set_text_alignment(date_layer, GTextAlignmentRight); }
+    text_layer_set_text_alignment(time_layer, GTextAlignmentRight);
+    layer_set_hidden(weather_layer, false);
+  } else {
+    layer_set_hidden(weather_layer, true);
+    text_layer_set_text_alignment(time_layer, GTextAlignmentCenter);
+    //text_layer_set_text_alignment(date_layer, GTextAlignmentCenter);
+  }
+}
+
 void toggle_statusbar() {
   if (showing_statusbar) {
     // status
     layer_set_hidden(statusbar, false);
     // date
     layer_add_child(datetime_layer, text_layer_get_layer(date_layer));
-    if (settings.show_day || settings.show_week || settings.show_am_pm) {
+    if (adv_settings.weather_update && (settings.show_day || settings.show_week || settings.show_am_pm)) {
       text_layer_set_text_alignment(date_layer, GTextAlignmentRight);
+    } else {
+      text_layer_set_text_alignment(date_layer, GTextAlignmentCenter);
     }
     // icon(s)
     layer_add_child(statusbar, bitmap_layer_get_layer(bmp_charging_layer));
-    layer_set_frame( bitmap_layer_get_layer(bmp_charging_layer), GRect(STAT_CHRG_ICON_LEFT, STAT_CHRG_ICON_TOP, 20, 20) );
+    //layer_set_frame( bitmap_layer_get_layer(bmp_charging_layer), GRect(STAT_CHRG_ICON_LEFT, STAT_CHRG_ICON_TOP, 20, 20) );
+    layer_add_child(statusbar, battery_layer);
+    layer_add_child(statusbar, inverter_layer_get_layer(battery_meter_layer));
   } else {
     // status
     layer_set_hidden(statusbar, true);
@@ -1031,7 +1059,9 @@ void toggle_statusbar() {
     text_layer_set_text_alignment(date_layer, GTextAlignmentCenter);
     // icon(s)
     layer_add_child(datetime_layer, bitmap_layer_get_layer(bmp_charging_layer));
-    layer_set_frame( bitmap_layer_get_layer(bmp_charging_layer), GRect(124, -2, 20, 20) );
+    //layer_set_frame( bitmap_layer_get_layer(bmp_charging_layer), GRect(124, -2, 20, 20) );
+    layer_add_child(datetime_layer, battery_layer);
+    layer_add_child(datetime_layer, inverter_layer_get_layer(battery_meter_layer));
   }
   position_date_layer();
 }
@@ -1241,6 +1271,8 @@ static void handle_battery(BatteryChargeState charge_state) {
   snprintf(battery_text, sizeof(battery_text), "%d", charge_state.charge_percent);
   text_layer_set_text(text_battery_layer, battery_text);
   layer_mark_dirty(battery_layer);
+  statusbar_visible();
+  toggle_statusbar();
 }
 
 void generate_vibe(uint32_t vibe_pattern_number) {
@@ -1355,17 +1387,6 @@ bool period_check(uint8_t start_incr, uint8_t stop_incr, bool retval_on_equal) {
   return inside_period;
 }
 
-void statusbar_visible() {
-  if (adv_settings.showStatus == 0) {
-    showing_statusbar = false;
-  } else if (adv_settings.showStatus == 1) {
-    showing_statusbar = true;
-  } else if (battery_percent <= adv_settings.showStatusBat) {
-    showing_statusbar = true;
-  } else {
-    showing_statusbar = false;
-  }
-}
 
 bool dnd_period_check() {
   // TODO - adv_settings.DND_accel_off = 0,   // Do Not Disturb: disable accelerometer polling during DND?
@@ -1456,9 +1477,6 @@ static void window_load(Window *window) {
   update_date_text();
   layer_add_child(datetime_layer, text_layer_get_layer(date_layer));
 
-  statusbar_visible();
-  toggle_statusbar();
-
   weather_layer = layer_create(slot_top_bounds);
   layer_set_update_proc(weather_layer, weather_layer_update_callback);
   layer_add_child(datetime_layer, weather_layer);
@@ -1467,7 +1485,8 @@ static void window_load(Window *window) {
   text_layer_set_text_color(time_layer, GColorWhite);
   text_layer_set_background_color(time_layer, GColorClear);
   text_layer_set_font(time_layer, fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_FUTURA_CONDENSED_48)));
-  text_layer_set_text_alignment(time_layer, GTextAlignmentRight);
+  text_layer_set_text_alignment(time_layer, GTextAlignmentCenter);
+  toggle_weather();
   position_time_layer(); // make use of our whitespace, if we have it...
   update_time_text();
   layer_add_child(datetime_layer, text_layer_get_layer(time_layer));
@@ -1531,6 +1550,9 @@ static void window_load(Window *window) {
   battery_meter_layer = inverter_layer_create(stat_bounds);
   layer_set_hidden(inverter_layer_get_layer(battery_meter_layer), true);
   layer_add_child(statusbar, inverter_layer_get_layer(battery_meter_layer));
+
+  statusbar_visible();
+  toggle_statusbar();
 
   // topmost inverter layer, determines dark or light...
   inverter_layer = inverter_layer_create(bounds);
@@ -1850,7 +1872,7 @@ void in_configuration_handler(DictionaryIterator *received, void *context) {
 
     // AK_SHOW_DATE == show date // TODO, UNUSED
     appkey = dict_find(received, AK_SHOW_DATE);
-    if (appkey != NULL) { adv_settings.showStatus = appkey->value->uint8; }
+    if (appkey != NULL) { adv_settings.showDate = appkey->value->uint8; }
 
     // AK_DND_START == period start, DND
     appkey = dict_find(received, AK_DND_START);
@@ -1913,6 +1935,9 @@ void in_configuration_handler(DictionaryIterator *received, void *context) {
       }
       adv_settings.weather_update = appkey->value->uint8;
     }
+    statusbar_visible();
+    toggle_weather();
+    toggle_statusbar();
 
     // begin translations...
     Tuple *translation;
@@ -2048,12 +2073,12 @@ static void app_message_init(void) {
   app_message_register_outbox_sent(my_out_sent_handler);
   app_message_register_outbox_failed(my_out_fail_handler);
   // Init buffers
-  app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "AM Inbox max %lu", app_message_inbox_size_maximum());
+//  app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "AM Inbox max %lu", app_message_inbox_size_maximum());
 //[INFO    ] D Timely.c:2079 AM Inbox 2044 received
-  app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "AM Outbox max %lu", app_message_outbox_size_maximum());
+//  app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "AM Outbox max %lu", app_message_outbox_size_maximum());
 //[INFO    ] D Timely.c:2080 AM Outbox 636 received
   //app_message_open(app_message_inbox_size_maximum(), app_message_outbox_size_maximum());
-  app_message_open(1024, 512);
+  app_message_open(1280, 512);
 }
 
 
@@ -2079,7 +2104,7 @@ static void init(void) {
     if (persist_exists(PK_DEBUGGING)) {
       persist_read_data(PK_DEBUGGING, &debug, sizeof(debug) );
     }
-    //persist_write_data(PK_ADV_SETTINGS, &adv_settings, sizeof(adv_settings) ); // reset to defaults, for testing...
+    //persist_write_data(PK_ADV_SETTINGS, &adv_settings, sizeof(adv_settings) ); // XXX TODO reset to defaults, for testing...
     if (persist_exists(PK_ADV_SETTINGS)) {
       persist_read_data(PK_ADV_SETTINGS, &adv_settings, sizeof(adv_settings) );
     }
@@ -2093,8 +2118,8 @@ static void init(void) {
     //request_weather(NULL);
   }
 
-  timezone_request = app_timer_register(250, &request_timezone, NULL);
-  //request_timezone(NULL);
+  //timezone_request = app_timer_register(250, &request_timezone, NULL);
+  request_timezone(NULL);
 
   window = window_create();
   window_set_window_handlers(window, (WindowHandlers) {

@@ -5,13 +5,13 @@ var lastCoordinates;
 var weatherFormat;
 
 Pebble.addEventListener("ready", function (e) {
-    console.log("Connect! " + e.ready);
-//    locationWatcher = window.navigator.geolocation.watchPosition(locationSuccess, locationError, locationOptions);
+//    console.log("Connect! " + e.ready);
+//    locationWatcher = window.navigator.geolocation.watchPosition(weatherLocationSuccess, locationError, locationOptions);
 //    navigator.geolocation.clearWatch(locationWatcher);
 });
 
 Pebble.addEventListener("showConfiguration", function () {
-    console.log("Configuration window launching...");
+    //console.log("Configuration window launching...");
     var baseURL, pebtok, nocache;
     baseURL = 'http://www.cyn.org/pebble/timely/';
     pebtok  = '&pat=' + Pebble.getAccountToken();
@@ -22,7 +22,7 @@ Pebble.addEventListener("showConfiguration", function () {
     if (window.localStorage.getItem("version_config") !== null) {
         Pebble.openURL(baseURL + window.localStorage.version_config + ".php?" + pebtok + nocache);
     } else { // in case we never received the message / new install
-        Pebble.openURL(baseURL + "2.2.4.php?" + pebtok + nocache);
+        Pebble.openURL(baseURL + "2.3.0.php?" + pebtok + nocache);
     }
 });
 
@@ -75,7 +75,7 @@ Pebble.addEventListener("appmessage", function (e) {
         break;
     case 106:
         weatherFormat = e.payload.weather_fmt;
-        console.log('Weather Format: ' + weatherFormat);
+        //console.log('Weather Format: ' + weatherFormat);
         window.navigator.geolocation.getCurrentPosition(weatherLocationSuccess, locationError, locationOptions); // request weather;
         break;
     }
@@ -137,7 +137,7 @@ function fetchWeather(latitude, longitude) {
 
 function weatherLocationSuccess(pos) {
   lastCoordinates = pos.coords;
-  console.log('Weather: location found (' + lastCoordinates.latitude + ', ' + lastCoordinates.longitude + '): ');
+  //console.log('Weather: location found (' + lastCoordinates.latitude + ', ' + lastCoordinates.longitude + '): ');
   fetchWeather(lastCoordinates.latitude, lastCoordinates.longitude);
 }
 
@@ -153,14 +153,13 @@ function locationError(err) {
 }
 
 function iconFromWeatherId(weatherId, latitude, longitude) {
-  console.log("getting icon from weather");
   var now = new Date();
   var sunInfo = SunCalc.getTimes(now, latitude, longitude);
   var night = sunInfo.sunset < now || now < sunInfo.sunrise;
   var moon = "N";
   if (night) {
     var moonInfo = SunCalc.getMoonIllumination(now);
-    console.log("moon: " + moonInfo.fraction + "  " + moonInfo.angle);
+    //console.log("moon: " + moonInfo.fraction + "  " + moonInfo.angle);
     if (moonInfo.fraction <= 0.05) { moon = "O"; }
     else if (moonInfo.fraction >= 0.95) { moon = "S"; }
     else if (moonInfo.angle < 0) { // waxing
@@ -259,7 +258,7 @@ function b64_to_utf8( str ) {
 
 Pebble.addEventListener("webviewclosed", function (e) {
     //console.log("Configuration closed");
-    console.log("Response = " + e.response.length + "   " + e.response);
+    //console.log("Response = " + e.response.length + "   " + e.response);
     if (e.response !== undefined && e.response !== '' && e.response !== 'CANCELLED') { // user clicked Save/Submit, not Cancel/Done
         var options, web;
         options = JSON.parse(b64_to_utf8(e.response));
