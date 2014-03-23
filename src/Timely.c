@@ -1,6 +1,7 @@
 #include <pebble.h>
 #define DEBUGLOG 0
 #define TRANSLOG 0
+#define CONFIG_VERSION "2.2.4"
 /*
  * If you fork this code and release the resulting app, please be considerate and change all the appropriate values in appinfo.json 
  *
@@ -13,8 +14,6 @@
  *
  */
 
-static char config_version[] = "2.2.3";
-
 static Window *window;
 
 static Layer *battery_layer;
@@ -25,15 +24,17 @@ static TextLayer *week_layer;
 static TextLayer *ampm_layer;
 static TextLayer *day_layer;
 static Layer *calendar_layer;
+static Layer *splash_layer;
+static Layer *weather_layer;
 static Layer *statusbar;
+static Layer *slot_status;
 static Layer *slot_top;
 static Layer *slot_bot;
-static GFont unifont_14;
-static GFont unifont_18;
-static GFont unifont_18_bold;
-static GFont unifont_24;
+static GFont unifont_16;
+static GFont unifont_16_bold;
 static GFont cal_normal;
 static GFont cal_bold;
+static GFont climacons;
 
 static BitmapLayer *bmp_connection_layer;
 static GBitmap *image_connection_icon;
@@ -52,11 +53,10 @@ static InverterLayer *battery_meter_layer;
 static uint8_t battery_percent = 10;
 static bool battery_charging = false;
 static bool battery_plugged = false;
-static uint8_t sent_battery_percent = 10;  // TODO - make these statics within the send function
-static bool sent_battery_charging = false; // TODO - make these statics within the send function
-static bool sent_battery_plugged = false;  // TODO - make these statics within the send function
 AppTimer *battery_sending = NULL;
 AppTimer *timezone_request = NULL;
+AppTimer *weather_request = NULL;
+AppTimer *bottom_toggle = NULL;
 // connected info
 static bool bluetooth_connected = false;
 // suppress vibration
@@ -67,6 +67,7 @@ struct tm *currentTime;
 static int8_t seconds_shown = 0;
 static bool dnd_period_active = false;
 static bool vibe_period_active = false;
+static bool showing_statusbar = true;
 
 // define the persistent storage key(s)
 #define PK_SETTINGS      0
@@ -96,6 +97,25 @@ static bool vibe_period_active = false;
 #define AK_LANGUAGE              15
 #define AK_DEBUGLANG_ON          16
 #define AK_CAL_WEEK_PATTERN      17
+#define AK_INV_SLOT_STAT         18 // UNUSED 
+#define AK_INV_SLOT_TOP          19 // UNUSED
+#define AK_INV_SLOT_BOT          20 // UNUSED
+#define AK_SHOW_STAT_BAR         21
+#define AK_SHOW_STAT_BATT        22
+#define AK_SHOW_DATE             23 // UNUSED
+#define AK_DND_START             24
+#define AK_DND_STOP              25
+#define AK_DND_NOACCEL           26 // UNUSED
+#define AK_VIBE_START            27
+#define AK_VIBE_STOP             28
+#define AK_VIBE_DAYS             29 // UNUSED
+#define AK_IDLE_REMINDER         30 // UNUSED
+#define AK_IDLE_VIBE_PATT        31 // UNUSED
+#define AK_IDLE_MESSAGE          32 // UNUSED
+#define AK_IDLE_START            33 // UNUSED
+#define AK_IDLE_STOP             34 // UNUSED
+#define AK_WEATHER_FMT           35
+#define AK_WEATHER_UPDATE        36
 
 #define AK_MESSAGE_TYPE          99
 #define AK_SEND_BATT_PERCENT    100
@@ -104,6 +124,9 @@ static bool vibe_period_active = false;
 #define AK_TIMEZONE_OFFSET      103
 #define AK_SEND_WATCH_VERSION   104
 #define AK_SEND_CONFIG_VERSION  105
+#define AK_REQUEST_WEATHER      106
+#define AK_WEATHER_TEMP         107
+#define AK_WEATHER_COND         108
 
 #define AK_TRANS_ABBR_SUNDAY    500
 #define AK_TRANS_ABBR_MONDAY    501
@@ -168,9 +191,10 @@ static bool vibe_period_active = false;
 #define STAT_CHRG_ICON_TOP    2
 
 // relative coordinates (relative to SLOTs)
-#define REL_CLOCK_DATE_LEFT       0
+#define REL_CLOCK_DATE_LEFT       2
 #define REL_CLOCK_DATE_TOP        0
 #define REL_CLOCK_DATE_HEIGHT    30 // date/time overlap, due to the way text is 'positioned'
+#define REL_CLOCK_DATE_WIDTH    140
 #define REL_CLOCK_TIME_LEFT       0
 #define REL_CLOCK_TIME_TOP        7
 #define REL_CLOCK_TIME_HEIGHT    60 // date/time overlap, due to the way text is 'positioned'
@@ -259,8 +283,21 @@ typedef struct persist_adv_settings { // 243 bytes
   uint8_t slots[10];       // 10 bytes
 } __attribute__((__packed__)) persist_adv_settings;
 
+typedef struct weather_data {
+  int16_t current;            // current temperature
+//  int16_t today_min;          // todays low
+//  int16_t today_max;          // todays high
+  char condition[2];          // weather_conditions (mapped to single character in font)
+} __attribute__((__packed__)) weather_data;
 /*
 */
+
+weather_data weather = {
+  .current    = 999,
+  //.today_min = 999,
+  //.today_max = 999,
+  .condition = {'h'},
+};
 
 persist settings = {
   .version    = 11,
@@ -313,7 +350,7 @@ persist_adv_settings adv_settings = {
   .invertTopSlot = 0,   // 1: invert Top Slot
   .invertBotSlot = 0,   // 1: invert Bottom Slot 
   // Status bar auto-hiding...
-  .showStatus = 1,      // Status: 0: never(!?), 1: always, 2: minimal, 3: only when disconnected/charging, 4: minimal #3
+  .showStatus = 1,      // Status: 0: never(!?), 1: always, 2: only when disconnected/charging/battery, 3: minimal always, 4: minimal #2
   .showStatusBat = 100, // Status: battery percentage above which to hide statusbar if hiding it is allowed
   // Date hiding... because I didn't reserve 0 in date_format ;)
   .showDate = 1,        // Date: 0: never, 1: always
@@ -392,6 +429,32 @@ void setInvColors(GContext* ctx) {
     graphics_context_set_stroke_color(ctx, GColorBlack);
     graphics_context_set_fill_color(ctx, GColorWhite);
     graphics_context_set_text_color(ctx, GColorBlack);
+}
+
+void weather_layer_update_callback(Layer *me, GContext* ctx) {
+  (void)me; // 144x72
+  static char temp_current[] = "000\u00b0";
+  static char cond_current[] = "0";
+//  static char temp_lowhigh[] = "000/000";
+  snprintf(temp_current, sizeof(temp_current), "%d\u00b0", weather.current);
+  snprintf(cond_current, sizeof(cond_current), "%s", weather.condition);
+//  snprintf(temp_lowhigh, sizeof(temp_lowhigh), "%d/%d", weather.today_min, weather.today_max);
+
+    setColors(ctx);
+    graphics_draw_text(ctx, cond_current, climacons, GRect(2,16,34,34), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL); 
+    graphics_draw_text(ctx, temp_current, fonts_get_system_font(FONT_KEY_GOTHIC_24), GRect(2,42,36,36), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL); 
+
+  if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Weather redrawing: %d, %s", weather.current, weather.condition); }
+//    graphics_draw_text(ctx, temp_current, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD), GRect(0,0,72,36), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL); 
+    //graphics_draw_text(ctx, temp_current, fonts_get_system_font(FONT_KEY_BITHAM_30_BLACK), GRect(0,0,72,36), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL); 
+//    graphics_draw_text(ctx, temp_lowhigh, fonts_get_system_font(FONT_KEY_GOTHIC_24), GRect(0,32,72,36), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL); 
+}
+
+void splash_layer_update_callback(Layer *me, GContext* ctx) {
+    (void)me; // 144x72
+    setColors(ctx);
+    graphics_draw_text(ctx, "Timely", fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD), GRect(0,0,144,36), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL); 
+    graphics_draw_text(ctx, CONFIG_VERSION, fonts_get_system_font(FONT_KEY_GOTHIC_28), GRect(0,32,144,36), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL); 
 }
 
 void calendar_layer_update_callback(Layer *me, GContext* ctx) {
@@ -526,7 +589,7 @@ void calendar_layer_update_callback(Layer *me, GContext* ctx) {
         if (strcmp(lang_gen.language,"RU") == 0 ) { font_vert_offset = -2; }
       }
       // draw the cell background
-      graphics_fill_rect(ctx, GRect (CAL_WIDTH * col + CAL_LEFT + CAL_GAP, 0, CAL_WIDTH - CAL_GAP, CAL_HEIGHT - CAL_GAP), 0, GCornerNone);
+    //  graphics_fill_rect(ctx, GRect (CAL_WIDTH * col + CAL_LEFT + CAL_GAP, 0, CAL_WIDTH - CAL_GAP, CAL_HEIGHT - CAL_GAP), 0, GCornerNone);
 
       // draw the cell text
       graphics_draw_text(ctx, lang_gen.abbrDaysOfWeek[weekday], current, GRect(CAL_WIDTH * col + CAL_LEFT + CAL_GAP, CAL_GAP + font_vert_offset, CAL_WIDTH, CAL_HEIGHT), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL); 
@@ -583,13 +646,13 @@ void update_date_text() {
     //September 11, 2013 => 18 chars, 9 of which could potentially be dual byte utf8 characters
     //123456789012345678
 
-    static char date_text[24];
-    static char date_text_2[24];
+    char date_text[24];
     static char date_string[48];
     char *strftime_format;
     // http://www.cplusplus.com/reference/ctime/strftime/
 
     if (settings.date_format < 215) { // localized date formats...
+      char date_text_2[24];
       switch ( settings.date_format ) {
       case 0: // MMMM DD, YYYY (localized)
         strftime(date_text, sizeof(date_text), "%d, %Y", currentTime); // DD, YYYY
@@ -905,11 +968,19 @@ void position_date_layer() {
   static int date_vert_offset = 0;
   // potentially adjust the date position, depending on language/font
   if ( strcmp(lang_gen.language,"RU") == 0 ) { // Unicode font w/ Cyrillic characters
-    date_vert_offset = -4;
+    if (showing_statusbar) {
+      date_vert_offset = -4;
+    } else {
+      date_vert_offset = 0;
+    }
   } else { // Standard font (EN, etc.)
-    date_vert_offset = -9;
+    if (showing_statusbar) {
+      date_vert_offset = -9;
+    } else {
+      date_vert_offset = -5;
+    }
   }
-  layer_set_frame( text_layer_get_layer(date_layer), GRect(REL_CLOCK_DATE_LEFT, REL_CLOCK_DATE_TOP + date_vert_offset, DEVICE_WIDTH, REL_CLOCK_DATE_HEIGHT) );
+  layer_set_frame( text_layer_get_layer(date_layer), GRect(REL_CLOCK_DATE_LEFT, REL_CLOCK_DATE_TOP + date_vert_offset, REL_CLOCK_DATE_WIDTH, REL_CLOCK_DATE_HEIGHT) );
 }
 
 void position_day_layer() {
@@ -920,18 +991,22 @@ void position_day_layer() {
   } else { // Standard font
     day_vert_offset = 0;
   }
-  layer_set_frame( text_layer_get_layer(day_layer), GRect(REL_CLOCK_DATE_LEFT, REL_CLOCK_SUBTEXT_TOP + day_vert_offset, DEVICE_WIDTH, REL_CLOCK_DATE_HEIGHT) );
+  layer_set_frame( text_layer_get_layer(day_layer), GRect(REL_CLOCK_DATE_LEFT, REL_CLOCK_SUBTEXT_TOP + day_vert_offset, REL_CLOCK_DATE_WIDTH, REL_CLOCK_DATE_HEIGHT) );
 }
 
 void position_time_layer() {
   // potentially adjust the clock position, if we've added/removed the week, day, or AM/PM layers
   static int time_offset = 0;
+  static int weather_offset = 0;
   if (!settings.show_day && !settings.show_week && !settings.show_am_pm) {
-    time_offset = 8;
+    time_offset = 12;
+    weather_offset = 0;
   } else {
     time_offset = 0;
+    weather_offset = -10;
   }
   layer_set_frame( text_layer_get_layer(time_layer), GRect(REL_CLOCK_TIME_LEFT, REL_CLOCK_TIME_TOP + time_offset, DEVICE_WIDTH, REL_CLOCK_TIME_HEIGHT) );
+  layer_set_frame( weather_layer, GRect(REL_CLOCK_TIME_LEFT, weather_offset, DEVICE_WIDTH, LAYOUT_SLOT_HEIGHT) );
 }
 
 void update_datetime_subtext() {
@@ -943,11 +1018,34 @@ void update_datetime_subtext() {
 
 void datetime_layer_update_callback(Layer *me, GContext* ctx) {
     (void)me;
+}
 
-    setColors(ctx);
-    update_date_text();
-    update_time_text();
-    update_datetime_subtext();
+void toggle_statusbar() {
+  if (showing_statusbar) {
+    // status
+    layer_set_hidden(statusbar, false);
+    // date
+    layer_add_child(datetime_layer, text_layer_get_layer(date_layer));
+    if (settings.show_day || settings.show_week || settings.show_am_pm) {
+      text_layer_set_text_alignment(date_layer, GTextAlignmentRight);
+    }
+    // icon(s)
+    layer_add_child(statusbar, bitmap_layer_get_layer(bmp_charging_layer));
+    layer_set_frame( bitmap_layer_get_layer(bmp_charging_layer), GRect(STAT_CHRG_ICON_LEFT, STAT_CHRG_ICON_TOP, 20, 20) );
+  } else {
+    // status
+    layer_set_hidden(statusbar, true);
+    // date
+    layer_add_child(slot_status, text_layer_get_layer(date_layer));
+    text_layer_set_text_alignment(date_layer, GTextAlignmentCenter);
+    // icon(s)
+    layer_add_child(datetime_layer, bitmap_layer_get_layer(bmp_charging_layer));
+    layer_set_frame( bitmap_layer_get_layer(bmp_charging_layer), GRect(124, -2, 20, 20) );
+  }
+  position_date_layer();
+}
+
+void slot_status_layer_update_callback(Layer *me, GContext* ctx) {
 }
 
 void statusbar_layer_update_callback(Layer *me, GContext* ctx) {
@@ -988,6 +1086,25 @@ void battery_layer_update_callback(Layer *me, GContext* ctx) {
                                 STAT_BATT_NIB_HEIGHT));
 }
 
+static void request_weather(void *data) {
+  weather.condition = 'h'; // h = updating 'cloud' icon
+  layer_mark_dirty(weather_layer); // update UI element to indicate we're fetching weather...
+  DictionaryIterator *iter;
+  AppMessageResult result = app_message_outbox_begin(&iter);
+  if (iter == NULL) {
+    if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "iterator is null: %d", result); }
+    return;
+  }
+  if (dict_write_uint8(iter, AK_MESSAGE_TYPE, AK_REQUEST_WEATHER) != DICT_OK) {
+    return;
+  }
+  if (dict_write_uint8(iter, AK_WEATHER_FMT, adv_settings.weather_format) != DICT_OK) {
+    return;
+  }
+  app_message_outbox_send();
+  weather_request = NULL;
+}
+
 static void request_timezone(void *data) {
   DictionaryIterator *iter;
   AppMessageResult result = app_message_outbox_begin(&iter);
@@ -1023,13 +1140,16 @@ static void watch_version_send(void *data) {
   if (dict_write_uint8(iter, AK_SEND_WATCH_VERSION, settings.version) != DICT_OK) {
     return;
   }
-  if (dict_write_cstring(iter, AK_SEND_CONFIG_VERSION, config_version) != DICT_OK) {
+  if (dict_write_cstring(iter, AK_SEND_CONFIG_VERSION, CONFIG_VERSION) != DICT_OK) {
     return;
   }
   app_message_outbox_send();
 }
 
 static void battery_status_send(void *data) {
+  static uint8_t sent_battery_percent = 10;
+  static bool sent_battery_charging = false;
+  static bool sent_battery_plugged = false;
   if (!settings.track_battery) {
     return; // if user has chosen not to track battery (saves power w/ appmessages)
   }
@@ -1095,6 +1215,15 @@ void set_status_charging_icon() {
       }
     }
   }
+}
+
+static void toggle_slot_bottom(void *data) {
+  static Layer* last = NULL;
+  Layer* which = (Layer*)data;
+  if (last != NULL) { layer_set_hidden(last, true); } // hide visible layer 
+  last = which; // we're about to show a layer, mark it as the visible layer 
+  if (last != NULL) { layer_set_hidden(last, false); } // show new visible layer 
+  bottom_toggle = NULL;
 }
 
 static void handle_battery(BatteryChargeState charge_state) {
@@ -1193,12 +1322,12 @@ static void handle_bluetooth(bool connected) {
 static void set_unifont() {
   if ( strcmp(lang_gen.language,"RU") == 0 ) { // Unicode font w/ Cyrillic characters
     // set fonts...
-    text_layer_set_font(day_layer,unifont_14);
-    text_layer_set_font(text_connection_layer, unifont_18);
-    text_layer_set_font(date_layer, unifont_24);
+    text_layer_set_font(day_layer,unifont_16);
+    text_layer_set_font(text_connection_layer, unifont_16);
+    text_layer_set_font(date_layer, unifont_16);
     // set fonts, for calendar
-    cal_normal = unifont_14; // fh = 16
-    cal_bold   = unifont_18_bold; // fh = 22 // XXX TODO need a bold unicode/unifont option... maybe invert it or box it or something?
+    cal_normal = unifont_16; // fh = 16
+    cal_bold   = unifont_16_bold; // fh = 22 // XXX TODO need a bold unicode/unifont option... maybe invert it or box it or something?
   } else { // Standard font
     // set fonts...
     text_layer_set_font(day_layer,fonts_get_system_font(FONT_KEY_GOTHIC_14));
@@ -1215,10 +1344,10 @@ static void set_unifont() {
   position_day_layer();
 }
 
-bool period_check(uint8_t start_incr, uint8_t stop_incr) {
+bool period_check(uint8_t start_incr, uint8_t stop_incr, bool retval_on_equal) {
   // takes two periods (uint8_t 0-144) in 10 minute increments, and returns whether the current time falls inside them.
   // periods are fully inclusive, presently
-  if (start_incr == stop_incr) { return false; }
+  if (start_incr == stop_incr) { return retval_on_equal; }
   bool inside_period = false;
   uint8_t current_min_incr = (currentTime->tm_min - (currentTime->tm_min%10))/10;
   uint8_t current_incr = currentTime->tm_hour * 6 + current_min_incr;
@@ -1235,42 +1364,59 @@ bool period_check(uint8_t start_incr, uint8_t stop_incr) {
   return inside_period;
 }
 
+void statusbar_visible() {
+  if (adv_settings.showStatus == 0) {
+    showing_statusbar = false;
+  } else if (adv_settings.showStatus == 1) {
+    showing_statusbar = true;
+  } else if (battery_percent <= adv_settings.showStatusBat) {
+    showing_statusbar = true;
+  } else {
+    showing_statusbar = false;
+  }
+}
+
 bool dnd_period_check() {
   // TODO - adv_settings.DND_accel_off = 0,   // Do Not Disturb: disable accelerometer polling during DND?
-  dnd_period_active = period_check(adv_settings.DND_start, adv_settings.DND_stop);
+  dnd_period_active = period_check(adv_settings.DND_start, adv_settings.DND_stop, false);
   if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Tested DND period... %d", (int)dnd_period_active); }
   return dnd_period_active;
 }
 bool hourvibe_period_check() {
   // TODO - adv_settings.vibe_hour_days  = 0, // Hour Vibe: days active [Su 1, Mo 2, Tu 4, We 8, Th 16, Fr 32, Sa 64 => 0 => 127]
-  vibe_period_active = period_check(adv_settings.vibe_hour_start, adv_settings.vibe_hour_stop);
+  vibe_period_active = period_check(adv_settings.vibe_hour_start, adv_settings.vibe_hour_stop, true);
   if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Tested vibe period... %d", (int)vibe_period_active); }
   return vibe_period_active;
 }
 
 static void window_load(Window *window) {
 
-  unifont_14 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_UNICODE_FB_16));
-  unifont_18 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_UNICODE_FB_16));
-  unifont_18_bold = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_UNICODE_FB_BOLD_16));
-  unifont_24 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_UNICODE_FB_16));
-  cal_normal = unifont_14;
-  cal_bold   = unifont_18_bold;
+  unifont_16 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_UNICODE_16));
+  unifont_16_bold = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_UNICODE_BOLD_16));
+  climacons  = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_CLIMACONS_32));
+  cal_normal = unifont_16;
+  cal_bold   = unifont_16_bold;
 
   Layer *window_layer = window_get_root_layer(window);
   GRect bounds = layer_get_bounds(window_layer);
-  //statusbar = layer_create(GRect(0,LAYOUT_STAT,DEVICE_WIDTH,LAYOUT_SLOT_TOP));
-  statusbar = layer_create(GRect(0,0,DEVICE_WIDTH,DEVICE_HEIGHT));
-  layer_set_update_proc(statusbar, statusbar_layer_update_callback);
-  layer_add_child(window_layer, statusbar);
-  GRect stat_bounds = layer_get_bounds(statusbar);
 
-  slot_top = layer_create(GRect(0,LAYOUT_SLOT_TOP,DEVICE_WIDTH,LAYOUT_SLOT_BOT));
+  slot_status = layer_create(GRect(0,LAYOUT_STAT,DEVICE_WIDTH,LAYOUT_SLOT_TOP));
+  //slot_status = layer_create(GRect(0,0,DEVICE_WIDTH,DEVICE_HEIGHT));
+  layer_set_update_proc(slot_status, slot_status_layer_update_callback);
+  layer_add_child(window_layer, slot_status);
+
+  statusbar = layer_create(GRect(0,LAYOUT_STAT,DEVICE_WIDTH,LAYOUT_SLOT_TOP));
+  layer_set_update_proc(statusbar, statusbar_layer_update_callback);
+  layer_add_child(slot_status, statusbar);
+  GRect stat_bounds = layer_get_bounds(statusbar);
+  //layer_set_hidden(statusbar, true); // TODO testing
+
+  slot_top = layer_create(GRect(0,LAYOUT_SLOT_TOP,DEVICE_WIDTH,LAYOUT_SLOT_HEIGHT));
   layer_set_update_proc(slot_top, slot_top_layer_update_callback);
   layer_add_child(window_layer, slot_top);
   GRect slot_top_bounds = layer_get_bounds(slot_top);
 
-  slot_bot = layer_create(GRect(0,LAYOUT_SLOT_BOT,DEVICE_WIDTH,DEVICE_HEIGHT));
+  slot_bot = layer_create(GRect(0,LAYOUT_SLOT_BOT,DEVICE_WIDTH,LAYOUT_SLOT_HEIGHT));
   layer_set_update_proc(slot_bot, slot_bot_layer_update_callback);
   layer_add_child(window_layer, slot_bot);
   GRect slot_bot_bounds = layer_get_bounds(slot_bot);
@@ -1301,24 +1447,48 @@ static void window_load(Window *window) {
   calendar_layer = layer_create(slot_bot_bounds);
   layer_set_update_proc(calendar_layer, calendar_layer_update_callback);
   layer_add_child(slot_bot, calendar_layer);
+  layer_set_hidden(calendar_layer, true);
 
-  date_layer = text_layer_create( GRect(REL_CLOCK_DATE_LEFT, REL_CLOCK_DATE_TOP, DEVICE_WIDTH, REL_CLOCK_DATE_HEIGHT) ); // see position_date_layer()
+  splash_layer = layer_create(slot_bot_bounds);
+  layer_set_update_proc(splash_layer, splash_layer_update_callback);
+  layer_add_child(slot_bot, splash_layer);
+  layer_set_hidden(splash_layer, true);
+
+  toggle_slot_bottom((void*)splash_layer);  // show @ start...
+  bottom_toggle = app_timer_register(1000, &toggle_slot_bottom, (void*)calendar_layer); // queue calendar to reappear in 5 seconds
+
+ // TODO: test reversing slots
+ // layer_add_child(slot_bot, datetime_layer);
+ // layer_add_child(slot_top, calendar_layer);
+ // layer_add_child(slot_top, splash_layer);
+ // layer_set_hidden(datetime_layer, true);
+
+  date_layer = text_layer_create( GRect(REL_CLOCK_DATE_LEFT, REL_CLOCK_DATE_TOP, REL_CLOCK_DATE_WIDTH, REL_CLOCK_DATE_HEIGHT) ); // see position_date_layer()
   text_layer_set_text_color(date_layer, GColorWhite);
   text_layer_set_background_color(date_layer, GColorClear);
   text_layer_set_font(date_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24));
   text_layer_set_text_alignment(date_layer, GTextAlignmentCenter);
   position_date_layer(); // depends on font/language
+  update_date_text();
   layer_add_child(datetime_layer, text_layer_get_layer(date_layer));
 
-  time_layer = text_layer_create( GRect(REL_CLOCK_TIME_LEFT, REL_CLOCK_TIME_TOP, DEVICE_WIDTH, REL_CLOCK_TIME_HEIGHT) ); // see position_time_layer()
+  statusbar_visible();
+  toggle_statusbar();
+
+  weather_layer = layer_create(slot_top_bounds);
+  layer_set_update_proc(weather_layer, weather_layer_update_callback);
+  layer_add_child(datetime_layer, weather_layer);
+
+  time_layer = text_layer_create( GRect(REL_CLOCK_TIME_LEFT, REL_CLOCK_TIME_TOP, DEVICE_WIDTH - 2, REL_CLOCK_TIME_HEIGHT) ); // see position_time_layer()
   text_layer_set_text_color(time_layer, GColorWhite);
   text_layer_set_background_color(time_layer, GColorClear);
-  text_layer_set_font(time_layer, fonts_get_system_font(FONT_KEY_ROBOTO_BOLD_SUBSET_49));
-  text_layer_set_text_alignment(time_layer, GTextAlignmentCenter);
+  text_layer_set_font(time_layer, fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_FUTURA_CONDENSED_48)));
+  text_layer_set_text_alignment(time_layer, GTextAlignmentRight);
   position_time_layer(); // make use of our whitespace, if we have it...
+  update_time_text();
   layer_add_child(datetime_layer, text_layer_get_layer(time_layer));
 
-  week_layer = text_layer_create( GRect(4, REL_CLOCK_SUBTEXT_TOP, 140, 16) );
+  week_layer = text_layer_create( GRect(4, REL_CLOCK_SUBTEXT_TOP, 140, 18) );
   text_layer_set_text_color(week_layer, GColorWhite);
   text_layer_set_background_color(week_layer, GColorClear);
   text_layer_set_font(week_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
@@ -1328,7 +1498,7 @@ static void window_load(Window *window) {
     layer_set_hidden(text_layer_get_layer(week_layer), true);
   }
 
-  day_layer = text_layer_create( GRect(4, REL_CLOCK_SUBTEXT_TOP, 140, 18) ); // see position_day_layer()
+  day_layer = text_layer_create( GRect(4, REL_CLOCK_SUBTEXT_TOP, REL_CLOCK_DATE_WIDTH, 18) ); // see position_day_layer()
   text_layer_set_text_color(day_layer, GColorWhite);
   text_layer_set_background_color(day_layer, GColorClear);
   text_layer_set_font(day_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
@@ -1339,7 +1509,7 @@ static void window_load(Window *window) {
     layer_set_hidden(text_layer_get_layer(day_layer), true);
   }
 
-  ampm_layer = text_layer_create( GRect(0, REL_CLOCK_SUBTEXT_TOP, 140, 16) );
+  ampm_layer = text_layer_create( GRect(0, REL_CLOCK_SUBTEXT_TOP, 140, 18) );
   text_layer_set_text_color(ampm_layer, GColorWhite);
   text_layer_set_background_color(ampm_layer, GColorClear);
   text_layer_set_font(ampm_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
@@ -1398,10 +1568,12 @@ static void window_unload(Window *window) {
   layer_destroy(text_layer_get_layer(week_layer));
   layer_destroy(text_layer_get_layer(time_layer));
   layer_destroy(text_layer_get_layer(date_layer));
+  layer_destroy(weather_layer);
+  layer_destroy(splash_layer);
   layer_destroy(calendar_layer);
   layer_destroy(datetime_layer);
   layer_destroy(battery_layer);
-  // TODO - unload custom fonts...
+  // custom fonts are automatically unloaded at exit - http://forums.getpebble.com/discussion/comment/35808/#Comment_35808
   layer_remove_from_parent(bitmap_layer_get_layer(bmp_charging_layer));
   layer_remove_from_parent(bitmap_layer_get_layer(bmp_connection_layer));
   bitmap_layer_destroy(bmp_charging_layer);
@@ -1445,6 +1617,9 @@ void handle_minute_tick(struct tm *tick_time, TimeUnits units_changed)
     hourvibe_period_check();
     set_status_charging_icon();
     handle_vibe_suppression();
+  }
+  if (adv_settings.weather_update && currentTime->tm_min % adv_settings.weather_update == 0) {
+    request_weather(NULL);
   }
 
   if (units_changed & MONTH_UNIT) {
@@ -1506,6 +1681,20 @@ void my_out_sent_handler(DictionaryIterator *sent, void *context) {
 void my_out_fail_handler(DictionaryIterator *failed, AppMessageResult reason, void *context) {
 // outgoing message failed
   if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "AppMessage Failed to Send: %d", reason); }
+}
+
+void in_weather_handler(DictionaryIterator *received, void *context) {
+  // TODO - should probably update some UI element to indicate we've fetched weather...
+    Tuple *appkey     = dict_find(received, AK_WEATHER_TEMP);
+    if (appkey != NULL)     { weather.current = appkey->value->int16; }
+//    Tuple *temp_min = dict_find(received, AK_WEATHER_TEMP_MIN);
+//    if (temp_min != NULL) { weather.today_min = temp_min->value->int16; }
+//    Tuple *temp_max = dict_find(received, AK_WEATHER_TEMP_MAX);
+//    if (temp_max != NULL) { weather.today_max = temp_max->value->int16; }
+    appkey = dict_find(received, AK_WEATHER_COND);
+    if (appkey != NULL)     { strncpy(weather.condition, appkey->value->cstring, sizeof(weather.condition)-1); }
+    layer_mark_dirty(weather_layer);
+    if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Weather received: %d, %s", weather.current, weather.condition); }
 }
 
 void in_timezone_handler(DictionaryIterator *received, void *context) {
@@ -1658,6 +1847,92 @@ void in_configuration_handler(DictionaryIterator *received, void *context) {
       adv_settings.week_pattern = week_pattern->value->uint8;
     }
 
+    Tuple *appkey;
+
+    // AK_INV_SLOT_STAT == invert slot (or not!) // TODO, UNUSED
+    appkey = dict_find(received, AK_INV_SLOT_STAT);
+    if (appkey != NULL) { adv_settings.invertStatBar = appkey->value->uint8; }
+
+    // AK_INV_SLOT_TOP == invert slot (or not!) // TODO, UNUSED
+    appkey = dict_find(received, AK_INV_SLOT_TOP);
+    if (appkey != NULL) { adv_settings.invertTopSlot = appkey->value->uint8; }
+
+    // AK_INV_SLOT_BOT == invert slot (or not!) // TODO, UNUSED
+    appkey = dict_find(received, AK_INV_SLOT_BOT);
+    if (appkey != NULL) { adv_settings.invertBotSlot = appkey->value->uint8; }
+
+    // AK_SHOW_STAT_BAR == show statusbar
+    appkey = dict_find(received, AK_SHOW_STAT_BAR);
+    if (appkey != NULL) { adv_settings.showStatus = appkey->value->uint8; }
+
+    // AK_SHOW_STAT_BATT == statusbar battery limit
+    appkey = dict_find(received, AK_SHOW_STAT_BATT);
+    if (appkey != NULL) { adv_settings.showStatusBat = appkey->value->uint8; }
+
+    // AK_SHOW_DATE == show date // TODO, UNUSED
+    appkey = dict_find(received, AK_SHOW_DATE);
+    if (appkey != NULL) { adv_settings.showStatus = appkey->value->uint8; }
+
+    // AK_DND_START == period start, DND
+    appkey = dict_find(received, AK_DND_START);
+    if (appkey != NULL) { adv_settings.DND_start = appkey->value->uint8; }
+
+    // AK_DND_STOP == period stop, DND
+    appkey = dict_find(received, AK_DND_STOP);
+    if (appkey != NULL) { adv_settings.DND_stop = appkey->value->uint8; }
+
+    // AK_DND_NOACCEL == [perhaps] disable accelerometer during DND // TODO, UNUSED
+    appkey = dict_find(received, AK_DND_NOACCEL);
+    if (appkey != NULL) { adv_settings.DND_accel_off = appkey->value->uint8; }
+
+    // AK_VIBE_START == period start, VIBE
+    appkey = dict_find(received, AK_VIBE_START);
+    if (appkey != NULL) { adv_settings.vibe_hour_start = appkey->value->uint8; }
+
+    // AK_VIBE_STOP == period stop, VIBE
+    appkey = dict_find(received, AK_VIBE_STOP);
+    if (appkey != NULL) { adv_settings.vibe_hour_stop = appkey->value->uint8; }
+
+    // AK_VIBE_DAYS == days to do hourly vibration // TODO, UNUSED
+    appkey = dict_find(received, AK_VIBE_DAYS);
+    if (appkey != NULL) { adv_settings.vibe_hour_days = appkey->value->uint8; }
+
+    // AK_IDLE_REMINDER == period stop, VIBE // TODO, UNUSED
+    appkey = dict_find(received, AK_IDLE_REMINDER);
+    if (appkey != NULL) { adv_settings.idle_reminder = appkey->value->uint8; }
+
+    // AK_IDLE_VIBE_PATT == idle vibration pattern // TODO, UNUSED
+    appkey = dict_find(received, AK_IDLE_VIBE_PATT);
+    if (appkey != NULL) { adv_settings.idle_pattern = appkey->value->uint8; }
+
+/* TODO
+    // AK_IDLE_MESSAGE == Idle message // TODO, UNUSED
+    appkey = dict_find(received, AK_IDLE_MESSAGE);
+    if (appkey != NULL) { strncpy(adv_settings.idle_message, appkey->value->cstring, sizeof(adv_settings.idle_message)-1); }
+*/
+
+    // AK_IDLE_START == period start, Idle reminder // TODO, UNUSED
+    appkey = dict_find(received, AK_IDLE_START);
+    if (appkey != NULL) { adv_settings.idle_start = appkey->value->uint8; }
+
+    // AK_IDLE_STOP == period stop, Idle reminder // TODO, UNUSED
+    appkey = dict_find(received, AK_IDLE_STOP);
+    if (appkey != NULL) { adv_settings.idle_stop = appkey->value->uint8; }
+
+    // AK_WEATHER_FMT == weather format (0:C / 1:F)
+    appkey = dict_find(received, AK_WEATHER_FMT);
+    if (appkey != NULL) {
+      // TODO: if it's changed, re-request weather? convert? 
+      adv_settings.weather_format = appkey->value->uint8;
+    }
+
+    // AK_WEATHER_UPDATE == weather update frequency
+    appkey = dict_find(received, AK_WEATHER_UPDATE);
+    if (appkey != NULL) {
+      // TODO: if it's reduced (but not 0), re-request?
+      adv_settings.weather_update = appkey->value->uint8;
+    }
+
     // begin translations...
     Tuple *translation;
 
@@ -1770,6 +2045,9 @@ void my_in_rcv_handler(DictionaryIterator *received, void *context) {
     case AK_TIMEZONE_OFFSET:
       in_timezone_handler(received, context);
       return;
+    case AK_REQUEST_WEATHER:
+      in_weather_handler(received, context);
+      return;
     }
   } else {
     // default to configuration, which may not send the message type...
@@ -1789,71 +2067,14 @@ static void app_message_init(void) {
   app_message_register_outbox_sent(my_out_sent_handler);
   app_message_register_outbox_failed(my_out_fail_handler);
   // Init buffers
-  app_message_open(app_message_inbox_size_maximum(), app_message_outbox_size_maximum());
+  app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "AM Inbox max %lu", app_message_inbox_size_maximum());
+//[INFO    ] D Timely.c:2079 AM Inbox 2044 received
+  app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "AM Outbox max %lu", app_message_outbox_size_maximum());
+//[INFO    ] D Timely.c:2080 AM Outbox 636 received
+  //app_message_open(app_message_inbox_size_maximum(), app_message_outbox_size_maximum());
+  app_message_open(1024, 512);
 }
 
-static void upgrade_pk_v10_v11() {
-  int result = 0;
-  if (persist_exists(PK_LANG_DATETIME)) {
-    typedef struct DEFUNCT_persist_datetime_lang { // 247 bytes   // deprecated v10->v11 (utf8)
-      char monthsNames[12][13];       // 156: 12 characters for each of 12 months
-      char DaysOfWeek[7][13];         //  91: 12 characters for each of  7 weekdays
-    } __attribute__((__packed__)) DEFUNCT_persist_datetime_lang;
-    DEFUNCT_persist_datetime_lang lang_datetime = {   // deprecated v10->v11 (utf8)
-      .monthsNames = { "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" },
-      .DaysOfWeek = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" },
-    };
-    persist_read_data(PK_LANG_DATETIME, &lang_datetime, sizeof(lang_datetime) );
-    // split char arrays out into individual new UTF8-sized PKs
-    for (int i = AK_TRANS_JANUARY; i <= AK_TRANS_DECEMBER; i++ ) {
-      strncpy(lang_months.monthsNames[i - AK_TRANS_JANUARY], lang_datetime.monthsNames[i - AK_TRANS_JANUARY], sizeof(lang_datetime.monthsNames[i - AK_TRANS_JANUARY])-1);
-    }
-    result = persist_write_data(PK_LANG_MONTHS, &lang_months, sizeof(lang_months) );
-    if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Upgraded structures, v10->v11, wrote %d bytes into lang_months", result); }
-    for (int i = AK_TRANS_SUNDAY; i <= AK_TRANS_SATURDAY; i++ ) {
-        strncpy(lang_days.DaysOfWeek[i - AK_TRANS_SUNDAY], lang_datetime.DaysOfWeek[i - AK_TRANS_SUNDAY], sizeof(lang_datetime.DaysOfWeek[i - AK_TRANS_SUNDAY])-1);
-    }
-    result = persist_write_data(PK_LANG_DAYS, &lang_days, sizeof(lang_days) );
-    if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Upgraded structures, v10->v11, wrote %d bytes into lang_days", result); }
-    result = persist_delete(PK_LANG_DATETIME);
-    if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Upgraded structures, v10->v11, %d - deleted PK for lang_datetime", result); }
-  }
-
-  typedef struct DEFUNCT_persist_general_lang { // 101 bytes   // deprecated v10->v11 (utf8)
-    char statuses[2][10];           //  20:  9 characters for each of  2 statuses
-    char abbrTime[2][6];            //  24:  5 characters for each of  2 abbreviations
-    char abbrDaysOfWeek[7][3];      //  21:  2 characters for each of  7 weekdays abbreviations
-    char abbrMonthsNames[12][4];    //  48:  3 characters for each of 12 months abbreviations
-  //                                   101 bytes
-  } __attribute__((__packed__)) DEFUNCT_persist_general_lang;
-  DEFUNCT_persist_general_lang old_lang_gen = {   // deprecated v10->v11 (utf8)
-    .statuses = { "Linked", "NOLINK" },
-    .abbrTime = { "AM", "PM" },
-    .abbrDaysOfWeek = { "Su", "Mo", "Tu", "We", "Th", "Fr", "Sa" },
-    .abbrMonthsNames = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" },
-  };
-  persist_read_data(PK_LANG_GEN, &old_lang_gen, sizeof(old_lang_gen) );
-
-  for (int i = AK_TRANS_CONNECTED; i <= AK_TRANS_DISCONNECTED; i++ ) {
-    strncpy(lang_gen.statuses[i - AK_TRANS_CONNECTED], old_lang_gen.statuses[i - AK_TRANS_CONNECTED], sizeof(old_lang_gen.statuses[i - AK_TRANS_CONNECTED])-1);
-  }
-  for (int i = AK_TRANS_TIME_AM; i <= AK_TRANS_TIME_PM; i++ ) {
-    strncpy(lang_gen.abbrTime[i - AK_TRANS_TIME_AM], old_lang_gen.abbrTime[i - AK_TRANS_TIME_AM], sizeof(old_lang_gen.abbrTime[i - AK_TRANS_TIME_AM])-1);
-  }
-  for (int i = AK_TRANS_ABBR_SUNDAY; i <= AK_TRANS_ABBR_SATURDAY; i++ ) {
-    strncpy(lang_gen.abbrDaysOfWeek[i - AK_TRANS_ABBR_SUNDAY], old_lang_gen.abbrDaysOfWeek[i - AK_TRANS_ABBR_SUNDAY], sizeof(old_lang_gen.abbrDaysOfWeek[i - AK_TRANS_ABBR_SUNDAY])-1);
-  }
-  for (int i = AK_TRANS_ABBR_JANUARY; i <= AK_TRANS_ABBR_DECEMBER; i++ ) {
-    strncpy(lang_gen.abbrMonthsNames[i - AK_TRANS_ABBR_JANUARY], old_lang_gen.abbrMonthsNames[i - AK_TRANS_ABBR_JANUARY], sizeof(old_lang_gen.abbrMonthsNames[i - AK_TRANS_ABBR_JANUARY])-1);
-  }
-  result = persist_write_data(PK_LANG_GEN, &lang_gen, sizeof(lang_gen) );
-  if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Upgraded structures, v10->v11, wrote %d bytes into lang_gen", result); }
-
-  // blindly assume success and update our version - if it failed, then defaults will be loaded anyway...
-  settings.version = 11;
-  result = persist_write_data(PK_SETTINGS, &settings, sizeof(settings) );
-  if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Upgraded structures, v10->v11, wrote %d bytes into settings", result); }
-}
 
 static void init(void) {
 
@@ -1863,11 +2084,8 @@ static void init(void) {
 
   app_message_init();
 
-  watch_version_send(NULL); // no guarantee the JS is there to receive me...
-
   if (persist_exists(PK_SETTINGS)) {
     persist_read_data(PK_SETTINGS, &settings, sizeof(settings) );
-    if (settings.version == 10) { upgrade_pk_v10_v11(); } // v10 -> v11 upgrades
     if (persist_exists(PK_LANG_GEN)) {
       persist_read_data(PK_LANG_GEN, &lang_gen, sizeof(lang_gen) );
     }
@@ -1885,21 +2103,27 @@ static void init(void) {
     }
   }
   // re-initialize this, if it was set, since we're storing those values persistently as well...
-  if (DEBUGLOG == 1) { debug.general= true; }
+  if (DEBUGLOG == 1) { debug.general = true; }
   if (TRANSLOG == 1) { debug.language = true; }
 
-  request_timezone(NULL);
+  if (adv_settings.weather_update) {
+    weather_request = app_timer_register(1250, &request_weather, NULL);
+    //request_weather(NULL);
+  }
+
+  timezone_request = app_timer_register(250, &request_timezone, NULL);
+  //request_timezone(NULL);
 
   window = window_create();
   window_set_window_handlers(window, (WindowHandlers) {
     .load = window_load,
     .unload = window_unload
   });
-  const bool animated = false;
   window_set_background_color(window, GColorBlack);
-  window_stack_push(window, animated);
+  window_stack_push(window, false);
 
   //update_time_text();
+  watch_version_send(NULL); // no guarantee the JS is there to receive me...
 
   switch_tick_handler();
   battery_state_service_subscribe(&handle_battery);
