@@ -1,8 +1,12 @@
 Timely Watchface for Pebble
 
-This is a Watchface for the Pebble Watch.  It shows the current date and current time in the top 'half', and then a small calendar w/ 3 weeks: last, current, and next week, in the bottom 'half'.  The statusbar at the top shows the connection status, charging, and battery level.  The text and date formats on the watch are fully localizable through the configuration screen, and various display options/preferences can be configured including vibrating in unique ways (or not at all) on the hour, and on link lost/regained.
+This is a Watchface for the Pebble Watch.  It shows the current date and current time in the top 'half', optionally including the weather conditions and temperature, and then a small calendar w/ 3 weeks (current and any 2 weeks around it), in the bottom 'half'.  The statusbar at the top shows the connection status, charging, and battery level.  The text and date formats on the watch are fully localizable through the configuration screen, and various display options/preferences can be configured including vibrating in unique ways (or not at all) on the hour, and on link lost/regained.
 
 The settings and localization for the face are configurable using the new PebbleKit JS configuration page.
+
+Special thanks: 
+ - 'Climacons' by @adamwhitcroft, compiled into a TTF font by @christiannaths
+   - http://adamwhitcroft.com/climacons/
 
 License
 

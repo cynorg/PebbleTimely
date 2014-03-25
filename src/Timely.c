@@ -1,7 +1,7 @@
 #include <pebble.h>
 #define DEBUGLOG 0
 #define TRANSLOG 0
-#define CONFIG_VERSION "2.3.1"
+#define CONFIG_VERSION "2.3.2"
 /*
  * If you fork this code and release the resulting app, please be considerate and change all the appropriate values in appinfo.json 
  *
@@ -1009,6 +1009,11 @@ void update_datetime_subtext() {
 
 void datetime_layer_update_callback(Layer *me, GContext* ctx) {
     (void)me;
+    // TODO: these calls can probably be reduced/optimized, but apparently not removed entirely!
+    setColors(ctx);
+    update_date_text();
+    update_time_text();
+    update_datetime_subtext();
 }
 
 void statusbar_visible() {
@@ -1619,19 +1624,20 @@ void handle_minute_tick(struct tm *tick_time, TimeUnits units_changed)
 {
   currentTime = tick_time;
   update_time_text();
-  if (currentTime->tm_min % 10 == 0) {
+  if ( currentTime->tm_min % 10 == 0) {
     dnd_period_check();
     hourvibe_period_check();
     set_status_charging_icon();
     handle_vibe_suppression();
   }
-  if (adv_settings.weather_update && currentTime->tm_min % adv_settings.weather_update == 0) {
-    request_weather(NULL);
-  }
+  if (adv_settings.weather_update && (currentTime->tm_min + 60) % adv_settings.weather_update == 0) {
+    request_weather(NULL); // TODO: should make this a timer, or at least add logic for not requesting until connected again
+  } else if (bluetooth_connected && adv_settings.weather_update && weather.current == 999) {
+    request_weather(NULL); // ANDROIIIIIDRAGE  (or, someone who's got weather enabled but location services disabled)
+  } 
 
-  if (units_changed & MONTH_UNIT) {
-    update_date_text();
-  }
+//  if (units_changed & MONTH_UNIT) {
+//  }
 
   if (units_changed & HOUR_UNIT) {
     request_timezone(NULL);
@@ -1692,6 +1698,7 @@ void my_out_fail_handler(DictionaryIterator *failed, AppMessageResult reason, vo
 
 void in_js_ready_handler(DictionaryIterator *received, void *context) {
     watch_version_send(NULL);
+    if (weather_request == NULL) { weather_request = app_timer_register(3000, &request_weather, NULL); } // for Android's slow JS...
 }
 
 void in_weather_handler(DictionaryIterator *received, void *context) {

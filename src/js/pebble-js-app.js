@@ -9,6 +9,7 @@ Pebble.addEventListener("ready", function (e) {
 //    locationWatcher = window.navigator.geolocation.watchPosition(weatherLocationSuccess, locationError, locationOptions);
 //    navigator.geolocation.clearWatch(locationWatcher);
     getWatchVersion();
+    sendTimezoneToWatch();
 });
 
 Pebble.addEventListener("showConfiguration", function () {
@@ -62,6 +63,11 @@ console.log(datetime);
     // TO BE DONE - actually store these in localStorage along with a date object in some useful manner
 }
 
+function sendWeatherToWatch(e) {
+    weatherFormat = e.payload.weather_fmt;
+    window.navigator.geolocation.getCurrentPosition(weatherLocationSuccess, locationError, locationOptions);
+}
+
 function sendTimezoneToWatch() {
     var offsetQuarterHours = Math.floor(new Date().getTimezoneOffset() / 15);
     // UTC offset in quarter hours ... 48 (UTC-12) through -56 (UTC+14) are the valid ranges
@@ -88,9 +94,7 @@ Pebble.addEventListener("appmessage", function (e) {
         saveWatchVersion(e);
         break;
     case 106:
-        weatherFormat = e.payload.weather_fmt;
-        //console.log('Weather Format: ' + weatherFormat);
-        window.navigator.geolocation.getCurrentPosition(weatherLocationSuccess, locationError, locationOptions); // request weather;
+        sendWeatherToWatch(e);
         break;
     }
 });
@@ -280,9 +284,9 @@ Pebble.addEventListener("webviewclosed", function (e) {
         web = options.web;
         delete options.web; // remove the 'web' object from our response, which has preferences such as language...
         options[15] = web.lang; // re-inject the language
-//        if (options[10] === 1) { // debugging is on...
+        if (options[10] === 1) { // debugging is on...
           console.log("Options = " + JSON.stringify(options));
-//        }
+        }
         Pebble.sendAppMessage(options,
             function (e) {
                 console.log("Successfully delivered message with transactionId=" + e.data.transactionId);

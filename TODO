@@ -2,8 +2,12 @@ TODOS:
 
 Watchface
  - vibration option(s)
-  - respect DND period (when exposed in SDK)
-  - hourly vibrations period (e.g. 9am - 5pm?)
+  - respect DND period (when exposed in SDK) [coded, needs config]
+  - hourly vibrations period (e.g. 9am - 5pm?) [coded, needs config]
+    - days vibrations active (not coded)
+ - weather selectable left/right
+ - visuals
+  - invert statusbar, weather, top, bottom?
   New Features
     - hide statusbar and reposition slots (or repurpose the statusbar for other information) when:
       - battery > X% (user defined)
