@@ -636,7 +636,55 @@ void update_date_text() {
 
     //September 11, 2013 => 18 chars, 9 of which could potentially be dual byte utf8 characters
     //123456789012345678
-
+const char *datestr[] = {
+      "%d.%m.%Y", // 215 DD.MM.YYYY
+      "%d-%m-%Y", // 216 DD-MM-YYYY
+      "%d/%m/%Y", // 217 DD/MM/YYYY
+      "%d %m %Y", // 218 DD MM YYYY
+      "%d%m%Y",   // 219 DDMMYYYY
+      // DD MM YY (%d %m %y)
+      "%d.%m.%y", // 220 DD.MM.YY
+      "%d-%m-%y", // 221 DD-MM-YY
+      "%d/%m/%y", // 222 DD/MM/YY
+      "%d %m %y", // 223 DD MM YY
+      "%d%m%y",   // 224 DDMMYY
+      // dd MM YYYY (%e %m %Y)
+      "%e.%m.%Y", // 225 dd.MM.YYYY
+      "%e-%m-%Y", // 226 dd-MM-YYYY
+      "%e/%m/%Y", // 227 dd/MM/YYYY
+      "%e %m %Y", // 228 dd MM YYYY
+      "%e%m%Y",   // 229 ddMMYYYY
+      // dd MM YY (%e %m %y)
+      "%e.%m.%y", // 230 dd.MM.YY
+      "%e-%m-%y", // 231 dd-MM-YY
+      "%e/%m/%y", // 232 dd/MM/YY
+      "%e %m %y", // 233 dd MM YY
+      "%e%m%y"   // 234 ddMMYY	
+      // YYYY MM DD (%Y %m %d)
+       "%Y.%m.%d", // 235 YYYY.MM.DD
+       "%Y-%m-%d", // 236 YYYY-MM-DD
+       "%Y/%m/%d", // 237 YYYY/MM/DD
+       "%Y %m %d", // 238 YYYY MM DD
+       "%Y%m%d",   // 239 YYYYMMDD
+      // YY MM DD (%y %m %d)
+       "%y.%m.%d", // 240 YY.MM.DD
+       "%y-%m-%d", // 241 YY-MM-DD
+       "%y/%m/%d", // 242 YY/MM/DD
+       "%y %m %d", // 243 YY MM DD
+       "%y%m%d",   // 244 YYMMDD
+      // YYYY MM dd (%Y %m %e)
+       "%Y.%m.%e", // 245 YYYY.MM.dd
+       "%Y-%m-%e", // 246 YYYY-MM-dd
+       "%Y/%m/%e", // 247 YYYY/MM/dd
+       "%Y %m %e", // 248 YYYY MM dd
+       "%Y%m%e",   // 249 YYYYMMdd
+      // YY MM dd (%y %m %e)
+       "%y.%m.%e", // 250 YY.MM.dd
+       "%y-%m-%e", // 251 YY-MM-dd
+       "%y/%m/%e", // 246 YY/MM/dd
+       "%y %m %e", // 247 YY MM dd
+       "%y%m%e",   // 248 YYMMdd
+};
     char date_text[24];
     static char date_string[48];
     char *strftime_format;
@@ -683,64 +731,14 @@ void update_date_text() {
         break;
       }
     } else { // non-localized date formats, straight strftime function calls
-      switch ( settings.date_format ) {
-      // DD MM YYYY (%d %m %Y)
-      case 215: strftime_format = "%d.%m.%Y"; break; // DD.MM.YYYY
-      case 216: strftime_format = "%d-%m-%Y"; break; // DD-MM-YYYY
-      case 217: strftime_format = "%d/%m/%Y"; break; // DD/MM/YYYY
-      case 218: strftime_format = "%d %m %Y"; break; // DD MM YYYY
-      case 219: strftime_format = "%d%m%Y"; break;   // DDMMYYYY
-      // DD MM YY (%d %m %y)
-      case 220: strftime_format = "%d.%m.%y"; break; // DD.MM.YY
-      case 221: strftime_format = "%d-%m-%y"; break; // DD-MM-YY
-      case 222: strftime_format = "%d/%m/%y"; break; // DD/MM/YY
-      case 223: strftime_format = "%d %m %y"; break; // DD MM YY
-      case 224: strftime_format = "%d%m%y"; break;   // DDMMYY
-      // dd MM YYYY (%e %m %Y)
-      case 225: strftime_format = "%e.%m.%Y"; break; // dd.MM.YYYY
-      case 226: strftime_format = "%e-%m-%Y"; break; // dd-MM-YYYY
-      case 227: strftime_format = "%e/%m/%Y"; break; // dd/MM/YYYY
-      case 228: strftime_format = "%e %m %Y"; break; // dd MM YYYY
-      case 229: strftime_format = "%e%m%Y"; break;   // ddMMYYYY
-      // dd MM YY (%e %m %y)
-      case 230: strftime_format = "%e.%m.%y"; break; // dd.MM.YY
-      case 231: strftime_format = "%e-%m-%y"; break; // dd-MM-YY
-      case 232: strftime_format = "%e/%m/%y"; break; // dd/MM/YY
-      case 233: strftime_format = "%e %m %y"; break; // dd MM YY
-      case 234: strftime_format = "%e%m%y"; break;   // ddMMYY
+	  if ((settings.date_format>=215)||(settings.date_format<=254)) // load from table
+		  strftime(date_text, sizeof(date_text), datestr[settings.date_format-215], currentTime);
 
-      // YYYY MM DD (%Y %m %d)
-      case 235: strftime_format = "%Y.%m.%d"; break; // YYYY.MM.DD
-      case 236: strftime_format = "%Y-%m-%d"; break; // YYYY-MM-DD
-      case 237: strftime_format = "%Y/%m/%d"; break; // YYYY/MM/DD
-      case 238: strftime_format = "%Y %m %d"; break; // YYYY MM DD
-      case 239: strftime_format = "%Y%m%d"; break;   // YYYYMMDD
-      // YY MM DD (%y %m %d)
-      case 240: strftime_format = "%y.%m.%d"; break; // YY.MM.DD
-      case 241: strftime_format = "%y-%m-%d"; break; // YY-MM-DD
-      case 242: strftime_format = "%y/%m/%d"; break; // YY/MM/DD
-      case 243: strftime_format = "%y %m %d"; break; // YY MM DD
-      case 244: strftime_format = "%y%m%d"; break;   // YYMMDD
-      // YYYY MM dd (%Y %m %e)
-      case 245: strftime_format = "%Y.%m.%e"; break; // YYYY.MM.dd
-      case 246: strftime_format = "%Y-%m-%e"; break; // YYYY-MM-dd
-      case 247: strftime_format = "%Y/%m/%e"; break; // YYYY/MM/dd
-      case 248: strftime_format = "%Y %m %e"; break; // YYYY MM dd
-      case 249: strftime_format = "%Y%m%e"; break;   // YYYYMMdd
-      // YY MM dd (%y %m %e)
-      case 250: strftime_format = "%y.%m.%e"; break; // YY.MM.dd
-      case 251: strftime_format = "%y-%m-%e"; break; // YY-MM-dd
-      case 252: strftime_format = "%y/%m/%e"; break; // YY/MM/dd
-      case 253: strftime_format = "%y %m %e"; break; // YY MM dd
-      case 254: strftime_format = "%y%m%e"; break;   // YYMMdd
-      // reserve 255 for a 'custom strftime string via AppMessage provided by config page'
-      case 255: strftime_format = settings.strftime_format; break;
-      }
-
-      // apply our (non-localized) strftime format
-      strftime(date_text, sizeof(date_text), strftime_format, currentTime);  // DD.MM.YYYY
+      if (settings.date_format==255) 
+      	strftime(date_text, sizeof(date_text), settings.strftime_format, currentTime);  
+      
       snprintf(date_string, sizeof(date_string), "%s", date_text); // straight copy
-    }
+      }
 
     text_layer_set_text(date_layer, date_string);
 }
@@ -1407,6 +1405,19 @@ bool hourvibe_period_check() {
   return vibe_period_active;
 }
 
+void set_layer_attr(TextLayer *textlayer, GTextAlignment Alignment)
+{
+  text_layer_set_text_alignment(textlayer, Alignment);
+  text_layer_set_text_color(textlayer, GColorWhite);
+  text_layer_set_background_color(textlayer, GColorClear);
+  //layer_add_child(datetime_layer, text_layer_get_layer(textlayer));
+}
+void set_layer_attr_sfont(TextLayer *textlayer, GFont font, GTextAlignment Alignment)
+{
+  set_layer_attr(textlayer, Alignment);
+  text_layer_set_font(textlayer, fonts_get_system_font(font));
+}
+
 static void window_load(Window *window) {
 
   unifont_16 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_UNICODE_16));
@@ -1475,10 +1486,11 @@ static void window_load(Window *window) {
   bottom_toggle = app_timer_register(2000, &toggle_slot_bottom, (void*)calendar_layer); // queue calendar to reappear in 2 seconds
 
   date_layer = text_layer_create( GRect(REL_CLOCK_DATE_LEFT, REL_CLOCK_DATE_TOP, REL_CLOCK_DATE_WIDTH, REL_CLOCK_DATE_HEIGHT) ); // see position_date_layer()
-  text_layer_set_text_color(date_layer, GColorWhite);
-  text_layer_set_background_color(date_layer, GColorClear);
-  text_layer_set_font(date_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24));
-  text_layer_set_text_alignment(date_layer, GTextAlignmentCenter);
+  set_layer_attr_sfont(date_layer, FONT_KEY_GOTHIC_24, GTextAlignmentCenter);
+  //text_layer_set_text_color(date_layer, GColorWhite);
+  //text_layer_set_background_color(date_layer, GColorClear);
+  //text_layer_set_font(date_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24));
+  //text_layer_set_text_alignment(date_layer, GTextAlignmentCenter);
   position_date_layer(); // depends on font/language
   update_date_text();
   layer_add_child(datetime_layer, text_layer_get_layer(date_layer));
@@ -1488,30 +1500,33 @@ static void window_load(Window *window) {
   layer_add_child(datetime_layer, weather_layer);
 
   time_layer = text_layer_create( GRect(REL_CLOCK_TIME_LEFT, REL_CLOCK_TIME_TOP, DEVICE_WIDTH - 2, REL_CLOCK_TIME_HEIGHT) ); // see position_time_layer()
-  text_layer_set_text_color(time_layer, GColorWhite);
-  text_layer_set_background_color(time_layer, GColorClear);
+  set_layer_attr(time_layer, GTextAlignmentCenter);
+  //text_layer_set_text_color(time_layer, GColorWhite);
+  //text_layer_set_background_color(time_layer, GColorClear);
   text_layer_set_font(time_layer, fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_FUTURA_CONDENSED_48)));
-  text_layer_set_text_alignment(time_layer, GTextAlignmentCenter);
+  //text_layer_set_text_alignment(time_layer, GTextAlignmentCenter);
   toggle_weather();
   position_time_layer(); // make use of our whitespace, if we have it...
   update_time_text();
   layer_add_child(datetime_layer, text_layer_get_layer(time_layer));
 
   week_layer = text_layer_create( GRect(4, REL_CLOCK_SUBTEXT_TOP, 140, 18) );
-  text_layer_set_text_color(week_layer, GColorWhite);
-  text_layer_set_background_color(week_layer, GColorClear);
-  text_layer_set_font(week_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
-  text_layer_set_text_alignment(week_layer, GTextAlignmentLeft);
+  set_layer_attr_sfont(week_layer, FONT_KEY_GOTHIC_14, GTextAlignmentLeft);
+  //text_layer_set_text_color(week_layer, GColorWhite);
+  //text_layer_set_background_color(week_layer, GColorClear);
+  //text_layer_set_font(week_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
+  //text_layer_set_text_alignment(week_layer, GTextAlignmentLeft);
   layer_add_child(datetime_layer, text_layer_get_layer(week_layer));
   if ( settings.show_week == 0 ) {
     layer_set_hidden(text_layer_get_layer(week_layer), true);
   }
 
   day_layer = text_layer_create( GRect(4, REL_CLOCK_SUBTEXT_TOP, REL_CLOCK_DATE_WIDTH, 18) ); // see position_day_layer()
-  text_layer_set_text_color(day_layer, GColorWhite);
-  text_layer_set_background_color(day_layer, GColorClear);
-  text_layer_set_font(day_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
-  text_layer_set_text_alignment(day_layer, GTextAlignmentCenter);
+  set_layer_attr_sfont(day_layer, FONT_KEY_GOTHIC_14, GTextAlignmentCenter);
+  //text_layer_set_text_color(day_layer, GColorWhite);
+  //text_layer_set_background_color(day_layer, GColorClear);
+  //text_layer_set_font(day_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
+  //text_layer_set_text_alignment(day_layer, GTextAlignmentCenter);
   position_day_layer(); // depends on font/language
   layer_add_child(datetime_layer, text_layer_get_layer(day_layer));
   if ( settings.show_day == 0 ) {
@@ -1519,10 +1534,11 @@ static void window_load(Window *window) {
   }
 
   ampm_layer = text_layer_create( GRect(0, REL_CLOCK_SUBTEXT_TOP, 140, 18) );
-  text_layer_set_text_color(ampm_layer, GColorWhite);
-  text_layer_set_background_color(ampm_layer, GColorClear);
-  text_layer_set_font(ampm_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
-  text_layer_set_text_alignment(ampm_layer, GTextAlignmentRight);
+  set_layer_attr_sfont(ampm_layer, FONT_KEY_GOTHIC_14, GTextAlignmentRight);
+  //text_layer_set_text_color(ampm_layer, GColorWhite);
+  //text_layer_set_background_color(ampm_layer, GColorClear);
+  //text_layer_set_font(ampm_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
+  //text_layer_set_text_alignment(ampm_layer, GTextAlignmentRight);
   layer_add_child(datetime_layer, text_layer_get_layer(ampm_layer));
   if ( settings.show_am_pm == 0 ) {
     layer_set_hidden(text_layer_get_layer(ampm_layer), true);
@@ -1531,19 +1547,21 @@ static void window_load(Window *window) {
   update_datetime_subtext();
 
   text_connection_layer = text_layer_create( GRect(20+STAT_BT_ICON_LEFT, 0, 72, 22) ); // see position_connection_layer()
-  text_layer_set_text_color(text_connection_layer, GColorWhite);
-  text_layer_set_background_color(text_connection_layer, GColorClear);
-  text_layer_set_font(text_connection_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18));
-  text_layer_set_text_alignment(text_connection_layer, GTextAlignmentLeft);
+  set_layer_attr_sfont(text_connection_layer, FONT_KEY_GOTHIC_18, GTextAlignmentLeft);
+  //text_layer_set_text_color(text_connection_layer, GColorWhite);
+  //text_layer_set_background_color(text_connection_layer, GColorClear);
+  //text_layer_set_font(text_connection_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18));
+  //text_layer_set_text_alignment(text_connection_layer, GTextAlignmentLeft);
   update_connection();
   position_connection_layer(); // depends on font/language
   layer_add_child(statusbar, text_layer_get_layer(text_connection_layer));
 
   text_battery_layer = text_layer_create( GRect(STAT_BATT_LEFT, STAT_BATT_TOP-2, STAT_BATT_WIDTH, STAT_BATT_HEIGHT) );
-  text_layer_set_text_color(text_battery_layer, GColorWhite);
-  text_layer_set_background_color(text_battery_layer, GColorClear);
-  text_layer_set_font(text_battery_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
-  text_layer_set_text_alignment(text_battery_layer, GTextAlignmentCenter);
+  set_layer_attr_sfont(text_battery_layer, FONT_KEY_GOTHIC_14, GTextAlignmentCenter);
+  //text_layer_set_text_color(text_battery_layer, GColorWhite);
+  //text_layer_set_background_color(text_battery_layer, GColorClear);
+  //text_layer_set_font(text_battery_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
+  //text_layer_set_text_alignment(text_battery_layer, GTextAlignmentCenter);
   text_layer_set_text(text_battery_layer, "?");
 
   layer_add_child(statusbar, text_layer_get_layer(text_battery_layer));
