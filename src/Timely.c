@@ -1,7 +1,7 @@
 #include <pebble.h>
 #define DEBUGLOG 0
 #define TRANSLOG 0
-#define CONFIG_VERSION "2.3.2"
+#define CONFIG_VERSION "2.3.3"
 /*
  * If you fork this code and release the resulting app, please be considerate and change all the appropriate values in appinfo.json 
  *
@@ -2124,9 +2124,6 @@ static void init(void) {
     weather_request = app_timer_register(1250, &request_weather, NULL);
     //request_weather(NULL);
   }
-
-  //timezone_request = app_timer_register(250, &request_timezone, NULL);
-  request_timezone(NULL);
 
   window = window_create();
   window_set_window_handlers(window, (WindowHandlers) {

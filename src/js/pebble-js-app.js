@@ -9,7 +9,6 @@ Pebble.addEventListener("ready", function (e) {
 //    locationWatcher = window.navigator.geolocation.watchPosition(weatherLocationSuccess, locationError, locationOptions);
 //    navigator.geolocation.clearWatch(locationWatcher);
     getWatchVersion();
-    sendTimezoneToWatch();
 });
 
 Pebble.addEventListener("showConfiguration", function () {
@@ -92,6 +91,7 @@ Pebble.addEventListener("appmessage", function (e) {
         break;
     case 104:
         saveWatchVersion(e);
+        sendTimezoneToWatch(); // a little bonus, since we know the watch is listening
         break;
     case 106:
         sendWeatherToWatch(e);
