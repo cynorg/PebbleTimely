@@ -1,3 +1,226 @@
+var CLIMACON = {
+  'cloud'            : '!',
+  'cloud_day'        : '"',
+  'cloud_night'      : '#',
+  'rain'             : '',
+  'rain_day'         : '',
+  'rain_night'       : '',
+  'showers'          : "'",
+  'showers_day'      : '(',
+  'showers_night'    : ')',
+  'downpour'         : '*',
+  'downpour_day'     : '+',
+  'downpour_night'   : ',',
+  'drizzle'          : '-',
+  'drizzle_day'      : '.',
+  'drizzle_night'    : '/',
+  'sleet'            : '0',
+  'sleet_day'        : '1',
+  'sleet_night'      : '2',
+  'hail'             : '3',
+  'hail_day'         : '4',
+  'hail_night'       : '5',
+  'flurries'         : '6',
+  'flurries_day'     : '7',
+  'flurries_night'   : '8',
+  'snow'             : '9',
+  'snow_day'         : ':',
+  'snow_night'       : ';',
+  'fog'              : '<',
+  'fog_day'          : '=',
+  'fog_night'        : '>',
+  'haze'             : '?',
+  'haze_day'         : '@',
+  'haze_night'       : 'A',
+  'wind'             : 'B',
+  'wind_cloud'       : 'C',
+  'wind_cloud_day'   : 'D',
+  'wind_cloud_night' : 'E',
+  'lightning'        : 'F',
+  'lightning_day'    : 'G',
+  'lightning_night'  : 'H',
+// ---
+  'sun'              : 'I',
+   'set'             : 'J',
+   'rise'            : 'K',
+   'low'             : 'L',
+   'lower'           : 'M',
+  'moon'             : 'N',
+   'new'             : 'O',
+   'wax_cresc'       : 'P',
+   'wax_quart'       : 'Q',
+   'wax_gib'         : 'R',
+   'full'            : 'S',
+   'wane_cresc'      : 'T',
+   'wane_quart'      : 'U',
+   'wane_gib'        : 'V',
+  'snowflake'        : 'W',
+  'tornado'          : 'X',
+  'thermometer'      : 'Y',
+   'temp_low'        : 'Z',
+   'temp_med-low'    : '[',
+   'temp_med-high'   : "\\",
+   'temp_high'       : ']',
+   'temp_full'       : '^',
+  'celsius'          : '`',
+  'fahrenheit'       : '_',
+  'compass'          : 'a',
+   'north'           : 'b',
+   'east'            : 'c',
+   'south'           : 'd',
+   'west'            : 'e',
+  'umbrella'         : 'f',
+  'sunglasses'       : 'g',
+  'cloud_refresh'    : 'h',
+  'cloud_up'         : 'i',
+  'cloud_down'       : 'j'
+};
+
+var OWMclimacon= {
+  // TODO (it's in a different format later, and I'm not even sure I'll ever be using OWM again)
+};
+
+var YWclimacon= {
+  0 : CLIMACON['tornado'], //tornado
+  1 : CLIMACON['tornado'], //tropical storm
+  2 : CLIMACON['tornado'], //hurricane
+  3 : CLIMACON['lightning'], //severe thunderstorms
+  4 : CLIMACON['lightning'], //thunderstorms
+  5 : CLIMACON['sleet'], //mixed rain and snow
+  6 : CLIMACON['sleet'], //mixed rain and sleet
+  7 : CLIMACON['sleet'], //mixed snow and sleet
+  8 : CLIMACON['hail'], //freezing drizzle
+  9 : CLIMACON['drizzle'], //drizzle
+  10 : CLIMACON['hail'], //freezing rain
+  11 : CLIMACON['showers'], //showers
+  12 : CLIMACON['showers'], //showers
+  13 : CLIMACON['snow'], //snow flurries
+  14 : CLIMACON['snow'], //light snow showers
+  15 : CLIMACON['snow'], //blowing snow
+  16 : CLIMACON['snow'], //snow
+  17 : CLIMACON['hail'], //hail
+  18 : CLIMACON['sleet'], //sleet
+  19 : CLIMACON['haze'], //dust
+  20 : CLIMACON['fog'], //foggy
+  21 : CLIMACON['haze'], //haze
+  22 : CLIMACON['haze'], //smoky
+  23 : CLIMACON['wind'], //blustery
+  24 : CLIMACON['wind'], //windy
+  25 : CLIMACON['temp_low'], //cold
+  26 : CLIMACON['cloud'], //cloudy
+  27 : CLIMACON['cloud_night'], //mostly cloudy (night)
+  28 : CLIMACON['cloud_day'], //mostly cloudy (day)
+  29 : CLIMACON['cloud_night'], //partly cloudy (night)
+  30 : CLIMACON['cloud_day'], //partly cloudy (day)
+  31 : CLIMACON['moon'], //clear (night)
+  32 : CLIMACON['sun'], //sunny
+  33 : CLIMACON['moon'], //fair (night)
+  34 : CLIMACON['sun'], //fair (day)
+  35 : CLIMACON['hail'], //mixed rain and hail
+  36 : CLIMACON['temp_high'], //hot
+  37 : CLIMACON['lightning'], //isolated thunderstorms
+  38 : CLIMACON['lightning'], //scattered thunderstorms
+  39 : CLIMACON['lightning'], //scattered thunderstorms
+  40 : CLIMACON['showers'], //scattered showers
+  41 : CLIMACON['snow'], //heavy snow
+  42 : CLIMACON['snow'], //scattered snow showers
+  43 : CLIMACON['snow'], //heavy snow
+  44 : CLIMACON['cloud'], //partly cloudy
+  45 : CLIMACON['lightning'], //thundershowers
+  46 : CLIMACON['snow'], //snow showers
+  47 : CLIMACON['lightning'], //isolated thundershowers
+  3200 : CLIMACON['cloud_down'], //not available
+};
+
+var options = JSON.parse(localStorage.getItem('timely_options'));
+//console.log('read options: ' + JSON.stringify(options));
+//if (options === null) options = { "default" : "value", "foo" : "bar"};
+
+function getWeatherFromLatLong(latitude, longitude) {
+  var response;
+  var woeid = -1;
+  var query = encodeURI("select woeid from geo.placefinder where text=\""+latitude+","+longitude + "\" and gflags=\"R\"");
+  var url = "http://query.yahooapis.com/v1/public/yql?q=" + query + "&format=json";
+  var req = new XMLHttpRequest();
+  req.open('GET', url, true);
+  req.onload = function(e) {
+    if (req.readyState == 4) {
+      if (req.status == 200) {
+        response = JSON.parse(req.responseText);
+        if (response) {
+          woeid = response.query.results.Result.woeid;
+          getWeatherFromWoeid(woeid);
+        }
+      } else {
+        console.log("Error fetching woeid for " + url);
+      }
+    }
+  }
+  req.send(null);
+}
+
+function getWeatherFromLocation(location_name) {
+  var response;
+  var woeid = -1;
+  var query = encodeURI("select woeid from geo.places(1) where text=\"" + location_name + "\"");
+  var url = "http://query.yahooapis.com/v1/public/yql?q=" + query + "&format=json";
+  var req = new XMLHttpRequest();
+  req.open('GET', url, true);
+  req.onload = function(e) {
+    if (req.readyState == 4) {
+      if (req.status == 200) {
+        // console.log(req.responseText);
+        response = JSON.parse(req.responseText);
+        if (response) {
+          woeid = response.query.results.place.woeid;
+          getWeatherFromWoeid(woeid);
+        }
+      } else {
+        console.log("Error fetching woeid for " + url);
+      }
+    }
+  }
+  req.send(null);
+}
+
+function getWeatherFromWoeid(woeid) {
+  if (weatherFormat === 1) { units = "metric"; }
+  var query = encodeURI("select item.condition from weather.forecast where woeid = " + woeid +
+                        " and u = " + (weatherFormat ? "\"c\"" : "\"f\""));
+  var url = "http://query.yahooapis.com/v1/public/yql?q=" + query + "&format=json";
+
+  var response;
+  var req = new XMLHttpRequest();
+  req.open('GET', url, true);
+  req.onload = function(e) {
+    if (req.readyState == 4) {
+      if (req.status == 200) {
+        response = JSON.parse(req.responseText);
+        if (response) {
+          var condition = response.query.results.channel.item.condition;
+          temperature = condition.temp;
+          icon = YWclimacon[condition.code];
+          console.log("Weather: " + temperature + "; " + icon + " = " + condition.text);
+          sendWeather(Number(temperature), icon);
+        }
+      } else {
+        console.log("Error");
+      }
+    }
+  }
+  req.send(null);
+}
+
+function sendWeather(temp, cond_icon) {
+  if (cond_icon == CLIMACON['moon']) { cond_icon = getMoonIcon(); }
+  console.log('Sending Weather: ' + temp + '  ' + cond_icon);
+  Pebble.sendAppMessage({
+    message_type: 106,
+    weather_temp: temp,
+    weather_cond: cond_icon,
+  });
+}
+
 var locationOptions = { "timeout": 15000, "maximumAge": 60000, "enableHighAccuracy": false }; // 15 second timeout, allow 1 min cached
 //var cachedLocationOptions = { "timeout": 0, "maximumAge": 600000, "enableHighAccuracy": false }; // allow 10 min cached
 var locationWatcher;
@@ -134,11 +357,7 @@ function fetchWeather(latitude, longitude) {
             weather_temp_min: temp_min,
             weather_temp_max: temp_max,
 */
-          Pebble.sendAppMessage({
-            message_type: 106,
-            weather_temp: temp,
-            weather_cond: cond_icon,
-            });
+          sendWeather(temp, cond_icon);
         } else {
           for(var i in dataObj) {
                 console.log('dO:' + i + ' --- ' + dataObj[i]);
@@ -156,26 +375,18 @@ function fetchWeather(latitude, longitude) {
 function weatherLocationSuccess(pos) {
   lastCoordinates = pos.coords;
   //console.log('Weather: location found (' + lastCoordinates.latitude + ', ' + lastCoordinates.longitude + '): ');
-  fetchWeather(lastCoordinates.latitude, lastCoordinates.longitude);
+  //fetchWeather(lastCoordinates.latitude, lastCoordinates.longitude); // OWM: Open Weather Map
+  getWeatherFromLatLong(lastCoordinates.latitude, lastCoordinates.longitude); // YW: Yahoo Weather
 }
 
 function locationError(err) {
   console.warn('Weather: location error (' + err.code + '): ' + err.message);
-/*
-  // TODO
-  Pebble.sendAppMessage({
-    "weath_city":"Unavailable",
-    "weath_temp":"N/A"
-  });
-*/
+  sendWeather(998, CLIMACON['compass']);
 }
 
-function iconFromWeatherId(weatherId, latitude, longitude) {
-  var now = new Date();
-  var sunInfo = SunCalc.getTimes(now, latitude, longitude);
-  var night = sunInfo.sunset < now || now < sunInfo.sunrise;
-  var moon = "N";
-  if (night) {
+function getMoonIcon() {
+    var now = new Date();
+    var moon = "N";
     var moonInfo = SunCalc.getMoonIllumination(now);
     //console.log("moon: " + moonInfo.fraction + "  " + moonInfo.angle);
     if (moonInfo.fraction <= 0.05) { moon = "O"; }
@@ -204,6 +415,16 @@ T = waning gibbous  0.75 +
 	U = waning quarter  0.50 +
 V = waning crescent 0.25 +
 */
+    return moon;
+}
+
+function iconFromWeatherId(weatherId, latitude, longitude) {
+  var now = new Date();
+  var sunInfo = SunCalc.getTimes(now, latitude, longitude);
+  var night = sunInfo.sunset < now || now < sunInfo.sunrise;
+  var moon = "N";
+  if (night) {
+    moon = getMoonIcon();
   } else {
     //console.log("daytime");
   }

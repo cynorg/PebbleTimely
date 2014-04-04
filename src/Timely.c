@@ -431,8 +431,10 @@ void weather_layer_update_callback(Layer *me, GContext* ctx) {
   (void)me; // 144x72
   static char temp_current[] = "N/A ";
   static char cond_current[] = "0";
-  if (weather.current != 999) {
+  if (weather.current < 900) {
     snprintf(temp_current, sizeof(temp_current), "%d\u00b0", weather.current);
+  } else {
+    snprintf(temp_current, sizeof(temp_current), "N/A ");
   }
   snprintf(cond_current, sizeof(cond_current), "%s", weather.condition);
 
