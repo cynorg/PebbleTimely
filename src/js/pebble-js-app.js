@@ -2,9 +2,9 @@ var CLIMACON = {
   'cloud'            : '!',
   'cloud_day'        : '"',
   'cloud_night'      : '#',
-  'rain'             : '',
-  'rain_day'         : '',
-  'rain_night'       : '',
+  'rain'             : '$',
+  'rain_day'         : '%',
+  'rain_night'       : '&',
   'showers'          : "'",
   'showers_day'      : '(',
   'showers_night'    : ')',
@@ -77,7 +77,88 @@ var CLIMACON = {
 };
 
 var OWMclimacon= {
-  // TODO (it's in a different format later, and I'm not even sure I'll ever be using OWM again)
+// Thunderstorm
+  200 : CLIMACON['lightning'], // thunderstorm with light rain
+  201 : CLIMACON['lightning'], // thunderstorm with rain
+  202 : CLIMACON['lightning'], // thunderstorm with heavy rain
+  210 : CLIMACON['lightning'], // light thunderstorm
+  211 : CLIMACON['lightning'], // thunderstorm
+  212 : CLIMACON['lightning'], // heavy thunderstorm
+  221 : CLIMACON['lightning'], // ragged thunderstorm
+  230 : CLIMACON['lightning'], // thunderstorm with light drizzle
+  231 : CLIMACON['lightning'], // thunderstorm with drizzle
+  232 : CLIMACON['lightning'], // thunderstorm with heavy drizzle
+// Drizzle
+  300 : CLIMACON['drizzle'], // light intensity drizzle
+  301 : CLIMACON['drizzle'], // drizzle
+  302 : CLIMACON['drizzle'], // heavy intensity drizzle
+  310 : CLIMACON['drizzle'], // light intensity drizzle rain
+  311 : CLIMACON['drizzle'], // drizzle rain
+  312 : CLIMACON['drizzle'], // heavy intensity drizzle rain
+  313 : CLIMACON['showers'], // shower rain and drizzle
+  314 : CLIMACON['showers'], // heavy shower rain and drizzle
+  321 : CLIMACON['showers'], // shower drizzle
+// Rain
+  500 : CLIMACON['rain'], // light rain
+  501 : CLIMACON['rain'], // moderate rain
+  502 : CLIMACON['downpour'], // heavy intensity rain
+  503 : CLIMACON['downpour'], // very heavy rain
+  504 : CLIMACON['downpour'], // extreme rain
+  511 : CLIMACON['downpour'], // freezing rain
+  520 : CLIMACON['showers'], // light intensity shower rain
+  521 : CLIMACON['showers'], // shower rain
+  522 : CLIMACON['showers'], // heavy intensity shower rain
+  531 : CLIMACON['showers'], // ragged shower rain
+// Snow
+  600 : CLIMACON['snow'], // light snow
+  601 : CLIMACON['snow'], // snow
+  602 : CLIMACON['snow'], // heavy snow
+  611 : CLIMACON['sleet'], // sleet
+  612 : CLIMACON['sleet'], // shower sleet
+  615 : CLIMACON['snow'], // light rain and snow
+  616 : CLIMACON['snow'], // rain and snow
+  620 : CLIMACON['snow'], // light shower snow
+  621 : CLIMACON['snow'], // shower snow
+  622 : CLIMACON['snow'], // heavy shower snow
+// Atmosphere
+  701 : CLIMACON['haze'], // mist
+  711 : CLIMACON['haze'], // smoke
+  721 : CLIMACON['haze'], // haze
+  731 : CLIMACON['haze'], // Sand/Dust Whirls
+  741 : CLIMACON['fog'], // Fog
+  751 : CLIMACON['haze'], // sand
+  761 : CLIMACON['haze'], // dust
+  762 : CLIMACON['haze'], // VOLCANIC ASH
+  771 : CLIMACON['wind'], // SQUALLS
+  781 : CLIMACON['tornado'], // TORNADO
+// Clouds
+  800 : CLIMACON['sun'], // sky is clear
+  801 : CLIMACON['cloud'], // few clouds
+  802 : CLIMACON['cloud'], // scattered clouds
+  803 : CLIMACON['cloud'], // broken clouds
+  804 : CLIMACON['cloud'], // overcast clouds
+// Extreme
+  900 : CLIMACON['tornado'], // tornado
+  901 : CLIMACON['tornado'], // tropical storm
+  902 : CLIMACON['tornado'], // hurricane
+  903 : CLIMACON['temp_low'], // cold
+  904 : CLIMACON['temp_high'], // hot
+  905 : CLIMACON['wind'], // windy
+  906 : CLIMACON['hail'], // hail 
+// Additional
+  950 : CLIMACON['set'], // Setting
+  951 : CLIMACON['sun'], // Calm
+  952 : CLIMACON['sun'], // Light breeze
+  953 : CLIMACON['sun'], // Gentle Breeze
+  954 : CLIMACON['sun'], // Moderate breeze
+  955 : CLIMACON['sun'], // Fresh Breeze
+  956 : CLIMACON['wind'], // Strong breeze
+  957 : CLIMACON['wind'], // High wind, near gale
+  958 : CLIMACON['wind'], // Gale
+  959 : CLIMACON['wind'], // Severe Gale
+  960 : CLIMACON['lightning'], // Storm
+  961 : CLIMACON['lightning'], // Violent Storm
+  962 : CLIMACON['tornado'], // Hurricane 
 };
 
 var YWclimacon= {
@@ -200,7 +281,7 @@ function getWeatherFromWoeid(woeid) {
           var condition = response.query.results.channel.item.condition;
           temperature = condition.temp;
           icon = YWclimacon[condition.code];
-          console.log("Weather: " + temperature + "; " + icon + " = " + condition.text);
+          console.log("YW Weather: " + temperature + "; " + icon + " = " + condition.text);
           sendWeather(Number(temperature), icon);
         }
       } else {
@@ -212,6 +293,7 @@ function getWeatherFromWoeid(woeid) {
 }
 
 function sendWeather(temp, cond_icon) {
+  if (isItNight() && cond_icon == CLIMACON['sun']) { cond_icon = getMoonIcon(); }
   if (cond_icon == CLIMACON['moon']) { cond_icon = getMoonIcon(); }
   console.log('Sending Weather: ' + temp + '  ' + cond_icon);
   Pebble.sendAppMessage({
@@ -322,7 +404,7 @@ Pebble.addEventListener("appmessage", function (e) {
     }
 });
 
-function fetchWeather(latitude, longitude) {
+function fetchOWMWeather(latitude, longitude) {
   var response;
   var req = new XMLHttpRequest();
 //http://api.openweathermap.org/data/2.5/weather?lat=35.8415051596573&lon=-78.55771335780486&cnt=1&units=metric
@@ -344,8 +426,10 @@ function fetchWeather(latitude, longitude) {
           temp_max = Math.round(weatherResult.main.temp_max);
           cond_main = weatherResult.weather[0].main;
           cond_desc = weatherResult.weather[0].description;
-          cond_icon = iconFromWeatherId(weatherResult.weather[0].id, latitude, longitude);
+          cond_icon = OWMclimacon[weatherResult.weather[0].id];
           city = weatherResult.name;
+
+            console.log("OWM Weather: " + temp + "; " + cond_icon + " = " + cond_main + ", " + cond_desc);
 /*
           console.log('temp: ' + temp);
           console.log('temp_min: ' + temp_min);
@@ -375,13 +459,20 @@ function fetchWeather(latitude, longitude) {
 function weatherLocationSuccess(pos) {
   lastCoordinates = pos.coords;
   //console.log('Weather: location found (' + lastCoordinates.latitude + ', ' + lastCoordinates.longitude + '): ');
-  //fetchWeather(lastCoordinates.latitude, lastCoordinates.longitude); // OWM: Open Weather Map
+  //fetchOWMWeather(lastCoordinates.latitude, lastCoordinates.longitude); // OWM: Open Weather Map
   getWeatherFromLatLong(lastCoordinates.latitude, lastCoordinates.longitude); // YW: Yahoo Weather
 }
 
 function locationError(err) {
   console.warn('Weather: location error (' + err.code + '): ' + err.message);
   sendWeather(998, CLIMACON['compass']);
+}
+
+function isItNight() {
+  var now = new Date();
+  var sunInfo = SunCalc.getTimes(now, lastCoordinates.latitude, lastCoordinates.longitude);
+  var night = sunInfo.sunset < now || now < sunInfo.sunrise;
+  return night;
 }
 
 function getMoonIcon() {
@@ -416,79 +507,6 @@ T = waning gibbous  0.75 +
 V = waning crescent 0.25 +
 */
     return moon;
-}
-
-function iconFromWeatherId(weatherId, latitude, longitude) {
-  var now = new Date();
-  var sunInfo = SunCalc.getTimes(now, latitude, longitude);
-  var night = sunInfo.sunset < now || now < sunInfo.sunrise;
-  var moon = "N";
-  if (night) {
-    moon = getMoonIcon();
-  } else {
-    //console.log("daytime");
-  }
-
-  if (weatherId >= 200 && weatherId <= 232) {
-    return 'F'; // thunderstorm (lightning)
-  } else if (weatherId >= 300 && weatherId <= 321) {
-    if (weatherId >= 313 && weatherId <= 321) {
-      return "'"; // showers
-    }
-    return '-'; // drizzle
-  } else if (weatherId >= 500 && weatherId <= 531) {
-    if (weatherId >= 502 && weatherId <= 511) {
-      return '*'; // heavy rain
-    }
-    if (weatherId >= 520 && weatherId <= 531) {
-      return "'"; // showers
-    }
-    return '$'; // rain
-  } else if (weatherId >= 600 && weatherId <= 622) {
-    if (weatherId >= 611 && weatherId <= 612) {
-      return '0'; // sleet
-    }
-    return '9'; // snow
-  } else if (weatherId == 701) {
-    return '?'; // !! mist
-  } else if (weatherId == 711) {
-    return '?'; // !! smoke
-  } else if (weatherId == 721) {
-    return '?'; // haze
-  } else if (weatherId == 731) {
-    return '?'; // !! sand/dust whirls
-  } else if (weatherId == 741) {
-    return '<'; // fog
-  } else if (weatherId == 751) {
-    return '?'; // !! sand
-  } else if (weatherId == 761) {
-    return '?'; // !! dust
-  } else if (weatherId == 762) {
-    return '?'; // !! volcanic ash
-  } else if (weatherId == 771) {
-    return 'B'; // squalls
-  } else if (weatherId == 781) {
-    return 'X'; // tornado
-  } else if (weatherId == 800) {
-    if (night) { return moon; } else { return 'I'; }
-  } else if (weatherId >= 801 && weatherId <= 804) {
-    return '!'; // clouds (varying degrees)
-  } else if (weatherId == 900) {
-    return 'X'; // tornado
-  } else if (weatherId == 901) {
-    return 'C'; // tropical storm
-  } else if (weatherId == 902) {
-    return 'X'; // hurricane
-  } else if (weatherId == 903) {
-    return 'Z'; // cold (or Y)
-  } else if (weatherId == 904) {
-    return ']'; // hot (or ^)
-  } else if (weatherId == 905) {
-    return 'B'; // windy 
-  } else if (weatherId == 906) {
-    return '3'; // hail
-  }
-  return 'h';
 }
 
 function b64_to_utf8( str ) {
