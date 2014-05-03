@@ -382,6 +382,29 @@ persist_adv_settings adv_settings = {
   .slots = { 0, 1, 2, 3, 0, 1, 0, 1, 0, 1 } // 0 = clock_1, 1 = calendar, 2 = weather, 3 = forecast
 };
 
+/*
+char *translate_error(AppMessageResult result) {
+  switch (result) {
+    case APP_MSG_OK: return "APP_MSG_OK";
+    case APP_MSG_SEND_TIMEOUT: return "APP_MSG_SEND_TIMEOUT";
+    case APP_MSG_SEND_REJECTED: return "APP_MSG_SEND_REJECTED";
+    case APP_MSG_NOT_CONNECTED: return "APP_MSG_NOT_CONNECTED";
+    case APP_MSG_APP_NOT_RUNNING: return "APP_MSG_APP_NOT_RUNNING";
+    case APP_MSG_INVALID_ARGS: return "APP_MSG_INVALID_ARGS";
+    case APP_MSG_BUSY: return "APP_MSG_BUSY";
+    case APP_MSG_BUFFER_OVERFLOW: return "APP_MSG_BUFFER_OVERFLOW";
+    case APP_MSG_ALREADY_RELEASED: return "APP_MSG_ALREADY_RELEASED";
+    case APP_MSG_CALLBACK_ALREADY_REGISTERED: return "APP_MSG_CALLBACK_ALREADY_REGISTERED";
+    case APP_MSG_CALLBACK_NOT_REGISTERED: return "APP_MSG_CALLBACK_NOT_REGISTERED";
+    case APP_MSG_OUT_OF_MEMORY: return "APP_MSG_OUT_OF_MEMORY";
+    case APP_MSG_CLOSED: return "APP_MSG_CLOSED";
+    case APP_MSG_INTERNAL_ERROR: return "APP_MSG_INTERNAL_ERROR";
+    default: return "UNKNOWN ERROR";
+  }
+}
+*/
+
+
 // How many days are/were in the month
 int daysInMonth(int mon, int year)
 {
@@ -782,16 +805,15 @@ void update_month_text(TextLayer *which_layer) {
 
 void update_week_text(TextLayer *which_layer) {
   static char week_text[] = "W00";
-  if (settings.week_format == 0) {
-    // ISO 8601 week number (00-53)
-    strftime(week_text, sizeof(week_text), "W%V", currentTime);
-  } else if (settings.week_format == 1) {
+  static char week_format[] = "W%V"; // ISO 8601 week number (00-53)
+  if (settings.week_format == 1) {
     // Week number with the first Sunday as the first day of week one (00-53)
-    strftime(week_text, sizeof(week_text), "W%U", currentTime);
+    week_format[2] = 'U';
   } else if (settings.week_format == 2) {
     // Week number with the first Monday as the first day of week one (00-53)
-    strftime(week_text, sizeof(week_text), "W%W", currentTime);
+    week_format[2] = 'W';
   }
+  strftime(week_text, sizeof(week_text), week_format, currentTime);
   text_layer_set_text(which_layer, week_text);
 }
 
