@@ -738,22 +738,22 @@ void update_date_text() {
       case 11: // D MMMM YYYY (localized)
         strftime(date_text, sizeof(date_text), "%d", currentTime); // D
         strftime(date_text_2, sizeof(date_text_2), "%Y", currentTime); // YYYY
-        snprintf(date_string, sizeof(date_string), "%s %s %s", date_text_2, lang_months.monthsNames[currentTime->tm_mon], date_text); // insert Month
+        snprintf(date_string, sizeof(date_string), "%s %s %s", date_text, lang_months.monthsNames[currentTime->tm_mon], date_text_2); // insert Month
         break;
       case 12: // D MMMM 'YY (localized)
         strftime(date_text, sizeof(date_text), "%d", currentTime); // D
         strftime(date_text_2, sizeof(date_text_2), "'%y", currentTime); // YY
-        snprintf(date_string, sizeof(date_string), "%s %s %s", date_text_2, lang_months.monthsNames[currentTime->tm_mon], date_text); // insert Month
+        snprintf(date_string, sizeof(date_string), "%s %s %s", date_text, lang_months.monthsNames[currentTime->tm_mon], date_text_2); // insert Month
         break;
       case 13: // D Mmm YYYY (localized)
         strftime(date_text, sizeof(date_text), "%d", currentTime); // D
         strftime(date_text_2, sizeof(date_text_2), "%Y", currentTime); // YYYY
-        snprintf(date_string, sizeof(date_string), "%s %s %s", date_text_2, lang_gen.abbrMonthsNames[currentTime->tm_mon], date_text); // insert Mon
+        snprintf(date_string, sizeof(date_string), "%s %s %s", date_text, lang_gen.abbrMonthsNames[currentTime->tm_mon], date_text_2); // insert Mon
         break;
       case 14: // D Mmm 'YY (localized)
         strftime(date_text, sizeof(date_text), "%d", currentTime); // D
         strftime(date_text_2, sizeof(date_text_2), "'%y", currentTime); // YY
-        snprintf(date_string, sizeof(date_string), "%s %s %s", date_text_2, lang_gen.abbrMonthsNames[currentTime->tm_mon], date_text); // insert Mon
+        snprintf(date_string, sizeof(date_string), "%s %s %s", date_text, lang_gen.abbrMonthsNames[currentTime->tm_mon], date_text_2); // insert Mon
         break;
       }
     } else { // non-localized date formats, straight strftime function calls
