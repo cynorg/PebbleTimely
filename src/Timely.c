@@ -1,7 +1,7 @@
 #include <pebble.h>
 #define DEBUGLOG 0
 #define TRANSLOG 0
-#define CONFIG_VERSION "2.3.3"
+#define CONFIG_VERSION "2.3.4"
 /*
  * If you fork this code and release the resulting app, please be considerate and change all the appropriate values in appinfo.json 
  *
@@ -1302,6 +1302,7 @@ static void handle_battery(BatteryChargeState charge_state) {
   layer_mark_dirty(battery_layer);
   statusbar_visible();
   toggle_statusbar();
+  //handle_vibe_suppression();
 }
 
 void generate_vibe(uint32_t vibe_pattern_number) {
@@ -1627,7 +1628,7 @@ static void deinit(void) {
 void handle_vibe_suppression() {
   // control vibe_suppression events - we should never set vibe_suppression to false outside of this function
   // it is useful to set it true directly (briefly), to ensure suppression, and then call this function afterwards
-  if (dnd_period_active) {
+  if (dnd_period_active || battery_plugged) {
     vibe_suppression = true;
   } else if (settings.vibe_hour && vibe_period_active) {
     vibe_suppression = false;

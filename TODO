@@ -5,6 +5,11 @@ Watchface
   - respect DND period (when exposed in SDK) [coded, needs config]
   - hourly vibrations period (e.g. 9am - 5pm?) [coded, needs config]
     - days vibrations active (not coded)
+ - time alignment left/center/right (when no weather)
+ - choice of weather, yahoo vs. openweathermap
+   - proper timer for weather rather than "X minutes after the hour"
+   - track/show weather update info (X minutes ago, @ specific time)
+   - high/low option for weather?
  - weather selectable left/right
  - visuals
   - invert statusbar, weather, top, bottom?
