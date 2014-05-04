@@ -1,4 +1,5 @@
 #include <pebble.h>
+#include <Timely.h>
 #define DEBUGLOG 0
 #define TRANSLOG 0
 #define CONFIG_VERSION "2.3.4"
@@ -205,88 +206,6 @@ static bool showing_statusbar = true;
 #define SLOT_ID_WEATHER  2
 #define SLOT_ID_CLOCK_2  3
 
-// Create a struct to hold our persistent settings...
-typedef struct persist { // 18 bytes
-  uint8_t version;                // version key
-  uint8_t inverted;               // Invert display
-  uint8_t day_invert;             // Invert colors on today's date
-  uint8_t grid;                   // Show the grid
-  uint8_t vibe_hour;              // vibrate at the top of the hour?
-  uint8_t dayOfWeekOffset;        // first day of our week
-  uint8_t date_format;            // date format
-  uint8_t show_am_pm;             // Show AM/PM below time
-  uint8_t show_day;               // Show day name below time
-  uint8_t show_week;              // Show week number below time
-  uint8_t week_format;            // week format (calculation, e.g. ISO 8601)
-  uint8_t vibe_pat_disconnect;    // vibration pattern for disconnect
-  uint8_t vibe_pat_connect;       // vibration pattern for connect
-  char *strftime_format;          // custom date_format string (date_format = 255)
-  uint8_t track_battery;          // track battery information
-} __attribute__((__packed__)) persist;
-
-typedef struct persist_months_lang { // 252 bytes
-  char monthsNames[12][21];       // 252: 10-20 UTF8 characters for each of 12 months
-//                                   252 bytes
-} __attribute__((__packed__)) persist_months_lang;
-
-typedef struct persist_days_lang { // 238 bytes
-  char DaysOfWeek[7][34];         //  238: 16-33 UTF8 characters for each of 7 weekdays
-//                                    238 bytes
-} __attribute__((__packed__)) persist_days_lang;
-
-typedef struct persist_general_lang { // 253 bytes
-  char statuses[2][26];           //  40: 12-25 characters for each of  2 statuses
-  char abbrTime[2][12];           //  24:  5-11 characters for each of  2 abbreviations
-  char abbrDaysOfWeek[7][6];      //  42:  2- 5 characters for each of  7 weekdays abbreviations
-  char abbrMonthsNames[12][11];   // 132:  5-11 characters for each of 12 months abbreviations
-  char language[3];               //   3:  2 characters for language (internal, stored as ascii for convenience)
-//                                   253 bytes
-} __attribute__((__packed__)) persist_general_lang;
-
-typedef struct persist_debug { // 6 bytes
-  bool general;              // debugging messages (general)
-  bool language;             // debugging messages (language/translation)
-  bool reserved_1;           // debugging messages (reserved to spare updates later)
-  bool reserved_2;           // debugging messages (reserved to spare updates later)
-  bool reserved_3;           // debugging messages (reserved to spare updates later)
-  bool reserved_4;           // debugging messages (reserved to spare updates later)
-} __attribute__((__packed__)) persist_debug;
-
-typedef struct persist_adv_settings { // 243 bytes
-  uint8_t week_pattern;    //  1 byte
-  uint8_t invertStatBar;   //  1 byte
-  uint8_t invertTopSlot;   //  1 byte
-  uint8_t invertBotSlot;   //  1 byte
-  uint8_t showStatus;      //  1 byte
-  uint8_t showStatusBat;   //  1 byte
-  uint8_t showDate;        //  1 byte
-  uint8_t DND_start;       //  1 byte
-  uint8_t DND_stop;        //  1 byte
-  uint8_t DND_accel_off;   //  1 byte
-  uint8_t vibe_hour_start; //  1 byte
-  uint8_t vibe_hour_stop;  //  1 byte
-  uint8_t vibe_hour_days;  //  1 byte
-  uint8_t idle_reminder;   //  1 byte
-  uint8_t idle_pattern;    //  1 byte
-  char idle_message[32];   // 32 bytes
-  uint8_t idle_start;      //  1 byte
-  uint8_t idle_stop;       //  1 byte
-  int8_t clock2_tz;        //  1 byte
-  char clock2_desc[32];    // 32 bytes
-  uint8_t weather_format;  //  1 byte
-  uint8_t weather_update;  //  1 byte
-  char weather_lat[8];     //  8 bytes
-  char weather_lon[8];     //  8 bytes
-  uint8_t clock_font;      //  1 byte
-  uint8_t token_type[2];   //  2 bytes
-  char token_code[2][65];  //130 bytes
-  uint8_t slots[10];       // 10 bytes
-} __attribute__((__packed__)) persist_adv_settings;
-
-typedef struct weather_data {
-  int16_t current;            // current temperature
-  char condition[2];          // weather_conditions (mapped to single character in font)
-} __attribute__((__packed__)) weather_data;
 /*
 */
 
@@ -406,8 +325,7 @@ char *translate_error(AppMessageResult result) {
 
 
 // How many days are/were in the month
-int daysInMonth(int mon, int year)
-{
+int daysInMonth(int mon, int year) {
     mon++; // dec = 0|12, lazily optimized
 
     // April, June, September and November have 30 Days
@@ -430,8 +348,7 @@ int daysInMonth(int mon, int year)
     }
 }
 
-struct tm *get_time()
-{
+struct tm *get_time() {
     time_t tt = time(0);
     return localtime(&tt);
 }
@@ -889,7 +806,8 @@ void update_timezone_text(TextLayer *which_layer) {
   text_layer_set_text(which_layer, timezone_text);
 }
 
-void process_show_week() { // LEFT
+void process_show_week() {
+  // LEFT
   switch ( settings.show_week ) {
   case 0: // Hide
     //layer_set_hidden(text_layer_get_layer(week_layer), true);
@@ -915,7 +833,8 @@ void process_show_week() { // LEFT
   }
 }
 
-void process_show_day() { // MIDDLE
+void process_show_day() {
+  // MIDDLE
   switch ( settings.show_day ) {
   case 0: // Hide
     //layer_set_hidden(text_layer_get_layer(day_layer), true);
@@ -941,7 +860,8 @@ void process_show_day() { // MIDDLE
   }
 }
 
-void process_show_ampm() { // RIGHT
+void process_show_ampm() {
+  // RIGHT
   switch ( settings.show_am_pm ) {
   case 0: // Hide
     //layer_set_hidden(text_layer_get_layer(ampm_layer), true);
@@ -1302,7 +1222,7 @@ static void handle_battery(BatteryChargeState charge_state) {
   layer_mark_dirty(battery_layer);
   statusbar_visible();
   toggle_statusbar();
-  //handle_vibe_suppression();
+  handle_vibe_suppression();
 }
 
 void generate_vibe(uint32_t vibe_pattern_number) {
@@ -2161,11 +2081,10 @@ static void init(void) {
   //update_time_text();
 
   switch_tick_handler();
-  battery_state_service_subscribe(&handle_battery);
-  handle_battery(battery_state_service_peek()); // initialize
   bluetooth_connection_service_subscribe(&handle_bluetooth);
   handle_bluetooth(bluetooth_connection_service_peek()); // initialize
-  handle_vibe_suppression();
+  battery_state_service_subscribe(&handle_battery);
+  handle_battery(battery_state_service_peek()); // initialize
 }
 
 int main(void) {
