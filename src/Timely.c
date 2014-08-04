@@ -603,7 +603,7 @@ void update_date_text() {
       "%e-%m-%y", // 231 dd-MM-YY
       "%e/%m/%y", // 232 dd/MM/YY
       "%e %m %y", // 233 dd MM YY
-      "%e%m%y"   // 234 ddMMYY
+      "%e%m%y",   // 234 ddMMYY
       // YYYY MM DD (%Y %m %d)
       "%Y.%m.%d", // 235 YYYY.MM.DD
       "%Y-%m-%d", // 236 YYYY-MM-DD
