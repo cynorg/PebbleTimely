@@ -2,7 +2,7 @@
 #include <Timely.h>
 #define DEBUGLOG 0
 #define TRANSLOG 0
-#define CONFIG_VERSION "2.3.4"
+#define CONFIG_VERSION "2.4"
 /*
  * If you fork this code and release the resulting app, please be considerate and change all the appropriate values in appinfo.json 
  *
@@ -1559,7 +1559,7 @@ void handle_vibe_suppression() {
 
 void handle_minute_tick(struct tm *tick_time, TimeUnits units_changed)
 {
-  currentTime = tick_time;
+  *currentTime = *tick_time;
   update_time_text();
   if ( currentTime->tm_min % 10 == 0) {
     dnd_period_check();
