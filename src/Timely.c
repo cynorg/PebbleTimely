@@ -215,7 +215,7 @@ weather_data weather = {
 };
 
 persist settings = {
-  .version    = 11,
+  .version    = 12,
   .inverted   = 0, // no, dark
   .day_invert = 1, // yes
   .grid       = 1, // yes
@@ -369,19 +369,18 @@ void setInvColors(GContext* ctx) {
 
 void weather_layer_update_callback(Layer *me, GContext* ctx) {
   (void)me; // 144x72
-  static char temp_current[] = "N/A ";
+  static char temp_current[] = "N/A  ";
   static char cond_current[] = "0";
   if (weather.current < 900) {
     snprintf(temp_current, sizeof(temp_current), "%d\u00b0", weather.current);
   } else {
-    snprintf(temp_current, sizeof(temp_current), "N/A ");
+    snprintf(temp_current, sizeof(temp_current), "N/A");
   }
   snprintf(cond_current, sizeof(cond_current), "%s", weather.condition);
 
   setColors(ctx);
   graphics_draw_text(ctx, cond_current, climacons, GRect(2,16,34,34), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL); 
   graphics_draw_text(ctx, temp_current, fonts_get_system_font(FONT_KEY_GOTHIC_24), GRect(2,42,36,36), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL); 
-
   if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Weather redrawing: %d, %s", weather.current, weather.condition); }
 }
 
@@ -581,6 +580,31 @@ void update_date_text() {
     //September 11, 2013 => 18 chars, 9 of which could potentially be dual byte utf8 characters
     //123456789012345678
     const char *datestr[] = {
+      // MM DD YYYY (%m %d %Y)
+      "%m.%d.%Y", // 195 MM.DD.YYYY
+      "%m-%d-%Y", // 196 MM-DD-YYYY
+      "%m/%d/%Y", // 197 MM/DD/YYYY
+      "%m %d %Y", // 198 MM DD YYYY
+      "%m%d%Y",   // 199 MMDDYYYY
+      // MM DD YY (%m %d %y)
+      "%m.%d.%y", // 200 MM.DD.YY
+      "%m-%d-%y", // 201 MM-DD-YY
+      "%m/%d/%y", // 202 MM/DD/YY
+      "%m %d %y", // 203 MM DD YY
+      "%m%d%y",   // 204 MMDDYY
+      // MM dd YYYY (%m %e %Y)
+      "%m.%e.%Y", // 205 MM.dd.YYYY
+      "%m-%e-%Y", // 206 MM-dd-YYYY
+      "%m/%e/%Y", // 207 MM/dd/YYYY
+      "%m %e %Y", // 208 MM dd YYYY
+      "%m%e%Y",   // 209 MMddYYYY
+      // MM dd YY (%m %e %y)
+      "%m.%e.%y", // 210 MM.dd.YY
+      "%m-%e-%y", // 211 MM-dd-YY
+      "%m/%e/%y", // 212 MM/dd/YY
+      "%m %e %y", // 213 MM dd YY
+      "%m%e%y",   // 214 MMddYY
+      // DD MM YYYY (%d %m %Y)
       "%d.%m.%Y", // 215 DD.MM.YYYY
       "%d-%m-%Y", // 216 DD-MM-YYYY
       "%d/%m/%Y", // 217 DD/MM/YYYY
@@ -633,7 +657,7 @@ void update_date_text() {
     static char date_string[48];
     // http://www.cplusplus.com/reference/ctime/strftime/
 
-    if (settings.date_format < 215) { // localized date formats...
+    if (settings.date_format < 195) { // localized date formats...
       char date_text_2[24];
       switch ( settings.date_format ) {
       case 0: // MMMM DD, YYYY (localized)
@@ -674,8 +698,8 @@ void update_date_text() {
         break;
       }
     } else { // non-localized date formats, straight strftime function calls
-      if ((settings.date_format>=215)||(settings.date_format<=254)) { // load from table
-        strftime(date_text, sizeof(date_text), datestr[settings.date_format-215], currentTime);
+      if ((settings.date_format>=195)||(settings.date_format<=254)) { // load from table
+        strftime(date_text, sizeof(date_text), datestr[settings.date_format-195], currentTime);
       } else if (settings.date_format==255) {
         strftime(date_text, sizeof(date_text), settings.strftime_format, currentTime);  
       }
@@ -2044,6 +2068,10 @@ static void init(void) {
 
   if (persist_exists(PK_SETTINGS)) {
     persist_read_data(PK_SETTINGS, &settings, sizeof(settings) );
+    if (settings.version == 11) { // v11 -> v12 bugfix
+      if (settings.date_format > 234) { settings.date_format = settings.date_format + 1; }
+      settings.version = 12;
+    }
     if (persist_exists(PK_LANG_GEN)) {
       persist_read_data(PK_LANG_GEN, &lang_gen, sizeof(lang_gen) );
     }
