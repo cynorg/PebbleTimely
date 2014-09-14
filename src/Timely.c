@@ -438,8 +438,8 @@ void calendar_layer_update_callback(Layer *me, GContext* ctx) {
     int cellNum = 0;   // address for current day table cell: 0-20
     int daysVisPrevMonth = 0;
     int daysVisNextMonth = 0;
-    int daysPriorToToday = specialDay;
-    int daysAfterToday   = 6 - specialDay;
+    int daysPriorToToday = specialDay; // just instantiating, not final value
+    int daysAfterToday   = (6 - specialDay) % 7; // just instantiating, not final value
 
     // tm_wday is based on Sunday being the startOfWeek, but Sunday may not be our startOfWeek.
     if (currentTime->tm_wday < settings.dayOfWeekOffset) { 
