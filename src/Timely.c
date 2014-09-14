@@ -2,7 +2,7 @@
 #include <Timely.h>
 #define DEBUGLOG 0
 #define TRANSLOG 0
-#define CONFIG_VERSION "2.4"
+#define CONFIG_VERSION "2.5"
 /*
  * If you fork this code and release the resulting app, please be considerate and change all the appropriate values in appinfo.json 
  *
