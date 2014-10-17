@@ -7,6 +7,7 @@ typedef struct persist { // 18 bytes
   uint8_t version;                // version key
   uint8_t inverted;               // Invert display
   uint8_t day_invert;             // Invert colors on today's date
+  uint8_t show_splash;            // Show the splash screen
   uint8_t grid;                   // Show the grid
   uint8_t vibe_hour;              // vibrate at the top of the hour?
   uint8_t dayOfWeekOffset;        // first day of our week

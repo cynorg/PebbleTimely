@@ -1,7 +1,7 @@
 {
   "uuid": "55f7744b-f586-45b8-854c-554f34489f20",
   "shortName": "Timely",
-  "longName": "Timely 2.5",
+  "longName": "Timely 2.5.1",
   "companyName": "Martin Norland (@cynorg)",
   "versionCode": 2,
   "versionLabel": "2.5",
@@ -47,6 +47,7 @@
     "idle_stop":            34,
     "weather_fmt":          35,
     "weather_update":       36,
+    "show_splash":          37,
 
     "message_type":         99,
     "send_batt_percent":   100,

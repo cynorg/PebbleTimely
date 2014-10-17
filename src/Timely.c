@@ -217,6 +217,7 @@ weather_data weather = {
 persist settings = {
   .version    = 12,
   .inverted   = 0, // no, dark
+  .show_splash = 0, // show splash screen on start
   .day_invert = 1, // yes
   .grid       = 1, // yes
   .vibe_hour  = 0, // no
@@ -1447,14 +1448,17 @@ static void window_load(Window *window) {
   calendar_layer = layer_create(slot_bot_bounds);
   layer_set_update_proc(calendar_layer, calendar_layer_update_callback);
   layer_add_child(slot_bot, calendar_layer);
-  layer_set_hidden(calendar_layer, true);
-
   splash_layer = layer_create(slot_bot_bounds);
-  layer_set_update_proc(splash_layer, splash_layer_update_callback);
-  layer_add_child(slot_bot, splash_layer);
 
-  toggle_slot_bottom((void*)splash_layer);  // show @ start...
-  bottom_toggle = app_timer_register(2000, &toggle_slot_bottom, (void*)calendar_layer); // queue calendar to reappear in 2 seconds
+  if (settings.show_splash) {
+    layer_set_hidden(calendar_layer, true);
+
+    layer_set_update_proc(splash_layer, splash_layer_update_callback);
+    layer_add_child(slot_bot, splash_layer);
+
+    toggle_slot_bottom((void*)splash_layer);  // show @ start...
+    bottom_toggle = app_timer_register(2000, &toggle_slot_bottom, (void*)calendar_layer); // queue calendar to reappear in 2 seconds
+  }
 
   date_layer = text_layer_create( GRect(REL_CLOCK_DATE_LEFT, REL_CLOCK_DATE_TOP, REL_CLOCK_DATE_WIDTH, REL_CLOCK_DATE_HEIGHT) ); // see position_date_layer()
   set_layer_attr_sfont(date_layer, FONT_KEY_GOTHIC_24, GTextAlignmentCenter);
