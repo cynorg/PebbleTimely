@@ -88,6 +88,14 @@
         <label for="key12-7">Ow</label>
 </fieldset>
 
+<fieldset data-role="controlgroup" data-type="horizontal" data-mini="true">
+    <legend>Show splash screen:</legend>
+        <input name="key37" id="key37-1" value="1" checked="checked" type="radio">
+        <label for="key37-1">Yes</label>
+        <input name="key37" id="key37-0" value="0" type="radio">
+        <label for="key37-0">No</label>
+</fieldset>
+
     </div>
     <div data-role="collapsible">
         <h3>Translations</h3>
@@ -335,6 +343,7 @@
       function saveOptions() {
         var options = {
           'style_inv':     Number( $("input[name=key0]:checked").val() ),
+          'show_splash':   Number( $("input[name=key37]:checked").val() ),
           'style_day_inv': Number( $("input[name=key1]:checked").val() ),
           'style_grid':    Number( $("input[name=key2]:checked").val() ),
           'vibe_hour':     Number( $("input[name=key3]:checked").val() ),
@@ -385,6 +394,8 @@
           // the Pebble webview dies on the next line...
           $("input[name=key0][id=key0-"+ls_pto["style_inv"]+"]").prop('checked',true);
           $("input[name=key0]").checkboxradio('refresh');
+          $("input[name=key37][id=key37-"+ls_pto["show_splash"]+"]").prop('checked',true);
+          $("input[name=key37]").checkboxradio('refresh');
           $("input[name=key1][id=key1-"+ls_pto["style_day_inv"]+"]").prop('checked',true);
           $("input[name=key1]").checkboxradio('refresh');
           $("input[name=key2][id=key2-"+ls_pto["style_grid"]+"]").prop('checked',true);
