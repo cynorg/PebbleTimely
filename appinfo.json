@@ -14,6 +14,7 @@
     "watchface": true
   },
   "capabilities": [
+    "location",
     "configurable"
   ],
   "appKeys": {
