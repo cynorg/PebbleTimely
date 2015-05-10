@@ -1,8 +1,9 @@
 #include <pebble.h>
 #include <Timely.h>
+#include "effect_layer.h"
 #define DEBUGLOG 0
 #define TRANSLOG 0
-#define CONFIG_VERSION "2.5"
+#define CONFIG_VERSION "2.6"
 /*
  * If you fork this code and release the resulting app, please be considerate and change all the appropriate values in appinfo.json 
  *
@@ -47,8 +48,8 @@ static GBitmap *image_dnd_icon;
 static TextLayer *text_connection_layer;
 static TextLayer *text_battery_layer;
 
-static InverterLayer *inverter_layer;
-static InverterLayer *battery_meter_layer;
+static EffectLayer *inverter_layer;
+static EffectLayer *battery_meter_layer;
 
 // battery info, instantiate to 'worst scenario' to prevent false hopes
 static uint8_t battery_percent = 10;
@@ -1022,7 +1023,7 @@ void toggle_statusbar() {
     layer_add_child(statusbar, bitmap_layer_get_layer(bmp_charging_layer));
     //layer_set_frame( bitmap_layer_get_layer(bmp_charging_layer), GRect(STAT_CHRG_ICON_LEFT, STAT_CHRG_ICON_TOP, 20, 20) );
     layer_add_child(statusbar, battery_layer);
-    layer_add_child(statusbar, inverter_layer_get_layer(battery_meter_layer));
+    layer_add_child(statusbar, effect_layer_get_layer(battery_meter_layer));
   } else {
     // status
     layer_set_hidden(statusbar, true);
@@ -1033,7 +1034,7 @@ void toggle_statusbar() {
     layer_add_child(datetime_layer, bitmap_layer_get_layer(bmp_charging_layer));
     //layer_set_frame( bitmap_layer_get_layer(bmp_charging_layer), GRect(124, -2, 20, 20) );
     layer_add_child(datetime_layer, battery_layer);
-    layer_add_child(datetime_layer, inverter_layer_get_layer(battery_meter_layer));
+    layer_add_child(datetime_layer, effect_layer_get_layer(battery_meter_layer));
   }
   position_date_layer();
 }
@@ -1229,8 +1230,8 @@ static void handle_battery(BatteryChargeState charge_state) {
   battery_plugged = charge_state.is_plugged;
 
   // fill it in with current power
-  layer_set_bounds(inverter_layer_get_layer(battery_meter_layer), GRect(STAT_BATT_LEFT+2, STAT_BATT_TOP+2, battery_meter, STAT_BATT_HEIGHT-4));
-  layer_set_hidden(inverter_layer_get_layer(battery_meter_layer), false);
+  layer_set_frame(effect_layer_get_layer(battery_meter_layer), GRect(STAT_BATT_LEFT+2, STAT_BATT_TOP+2, battery_meter, STAT_BATT_HEIGHT-4));
+  layer_set_hidden(effect_layer_get_layer(battery_meter_layer), false);
 
   //if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "battery reading"); }
   if (battery_sending == NULL) {
@@ -1514,26 +1515,28 @@ static void window_load(Window *window) {
   // NOTE: No more adding layers below here - the inverter layers NEED to be the last to be on top!
 
   // hide battery meter, until we can fix the size/position later when subscribing
-  battery_meter_layer = inverter_layer_create(stat_bounds);
-  layer_set_hidden(inverter_layer_get_layer(battery_meter_layer), true);
-  layer_add_child(statusbar, inverter_layer_get_layer(battery_meter_layer));
+  battery_meter_layer = effect_layer_create(stat_bounds);
+  effect_layer_add_effect(battery_meter_layer, effect_invert, NULL);
+  layer_set_hidden(effect_layer_get_layer(battery_meter_layer), true);
+  layer_add_child(statusbar, effect_layer_get_layer(battery_meter_layer));
 
   statusbar_visible();
   toggle_statusbar();
 
   // topmost inverter layer, determines dark or light...
-  inverter_layer = inverter_layer_create(bounds);
+  inverter_layer = effect_layer_create(bounds);
+  effect_layer_add_effect(inverter_layer, effect_invert, NULL);
   if (settings.inverted==0) {
-    layer_set_hidden(inverter_layer_get_layer(inverter_layer), true);
+    layer_set_hidden(effect_layer_get_layer(inverter_layer), true);
   }
-  layer_add_child(window_layer, inverter_layer_get_layer(inverter_layer));
+  layer_add_child(window_layer, effect_layer_get_layer(inverter_layer));
 
 }
 
 static void window_unload(Window *window) {
   // unload anything we loaded, destroy anything we created, remove anything we added
-  layer_destroy(inverter_layer_get_layer(inverter_layer));
-  layer_destroy(inverter_layer_get_layer(battery_meter_layer));
+  layer_destroy(effect_layer_get_layer(inverter_layer));
+  layer_destroy(effect_layer_get_layer(battery_meter_layer));
   layer_destroy(text_layer_get_layer(text_battery_layer));
   layer_destroy(text_layer_get_layer(text_connection_layer));
   layer_destroy(text_layer_get_layer(ampm_layer));
@@ -1712,9 +1715,9 @@ void in_configuration_handler(DictionaryIterator *received, void *context) {
     if (style_inv != NULL) {
       settings.inverted = style_inv->value->uint8;
       if (style_inv->value->uint8==0) {
-        layer_set_hidden(inverter_layer_get_layer(inverter_layer), true); // hide inversion = dark
+        layer_set_hidden(effect_layer_get_layer(inverter_layer), true); // hide inversion = dark
       } else {
-        layer_set_hidden(inverter_layer_get_layer(inverter_layer), false); // show inversion = light
+        layer_set_hidden(effect_layer_get_layer(inverter_layer), false); // show inversion = light
       }
     }
 

@@ -1,10 +1,10 @@
 {
   "uuid": "55f7744b-f586-45b8-854c-554f34489f20",
   "shortName": "Timely",
-  "longName": "Timely 2.5",
+  "longName": "Timely 2.6",
   "companyName": "Martin Norland (@cynorg)",
   "versionCode": 2,
-  "versionLabel": "2.5",
+  "versionLabel": "2.6",
   "sdkVersion": "3",
   "targetPlatforms": [
     "aplite",
