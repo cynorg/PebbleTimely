@@ -1621,6 +1621,7 @@ void handle_minute_tick(struct tm *tick_time, TimeUnits units_changed)
 
 void handle_second_tick(struct tm *tick_time, TimeUnits units_changed)
 {
+  *currentTime = *tick_time;
   // update the seconds layer(s)...
   if (settings.show_week == 6) {
     update_seconds_text(week_layer);
