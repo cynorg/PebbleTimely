@@ -747,12 +747,12 @@ void update_month_text(TextLayer *which_layer) {
 
 void update_week_text(TextLayer *which_layer) {
   static char week_text[] = "W00";
-  static char week_format[] = "W%V"; // ISO 8601 week number (00-53)
+  char week_format[] = "W%V"; // V = ISO 8601 week number (00-53)
   if (settings.week_format == 1) {
-    // Week number with the first Sunday as the first day of week one (00-53)
+    // U = Week number with the first Sunday as the first day of week one (00-53)
     week_format[2] = 'U';
   } else if (settings.week_format == 2) {
-    // Week number with the first Monday as the first day of week one (00-53)
+    // W = Week number with the first Monday as the first day of week one (00-53)
     week_format[2] = 'W';
   }
   strftime(week_text, sizeof(week_text), week_format, currentTime);
