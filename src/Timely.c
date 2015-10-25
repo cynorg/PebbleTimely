@@ -1,7 +1,7 @@
 #include <pebble.h>
 #include <Timely.h>
 #include "effect_layer.h"
-#define DEBUGLOG 0
+#define DEBUGLOG 1
 #define TRANSLOG 0
 #define CONFIG_VERSION "2.6"
 /*
@@ -213,6 +213,8 @@ static bool showing_statusbar = true;
 weather_data weather = {
   .current    = 999,
   .condition = {'h'},
+  .requests = 0,
+  .failures = 0,
 };
 
 persist settings = {
@@ -290,7 +292,7 @@ persist_adv_settings adv_settings = {
   .clock2_desc = { "Second Clock" }, // 2nd clock: desc / city name of 2nd clock
   // Weather
   .weather_format = 0,  // Weather: 0: fahrenheit, 1: celsius
-  .weather_update = 15, // Weather: minutes between weather updates
+  .weather_update = 15, // Weather: minutes between weather updates [must divide into 60 cleanly]
   .weather_lat = "",    // latitude for 'static' weather lookups (GPS disabled)
   .weather_lon = "",   // longitude for 'static' weather lookups (GPS disabled)
   // Font
@@ -1081,6 +1083,7 @@ void battery_layer_update_callback(Layer *me, GContext* ctx) {
 }
 
 static void request_weather(void *data) {
+  if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Requesting Weather [%d/%d]", weather.failures, weather.requests); }
   strncpy(weather.condition, "h", sizeof(weather.condition)-1); // h = updating 'cloud' icon
   layer_mark_dirty(weather_layer); // update UI element to indicate we're fetching weather...
   DictionaryIterator *iter;
@@ -1096,6 +1099,7 @@ static void request_weather(void *data) {
     return;
   }
   app_message_outbox_send();
+  weather.requests++;
   weather_request = NULL;
 }
 
@@ -1594,10 +1598,12 @@ void handle_minute_tick(struct tm *tick_time, TimeUnits units_changed)
     set_status_charging_icon();
     handle_vibe_suppression();
   }
-  if (adv_settings.weather_update && (currentTime->tm_min + 60) % adv_settings.weather_update == 0) {
-    request_weather(NULL); // TODO: should make this a timer, or at least add logic for not requesting until connected again
-  } else if (bluetooth_connected && adv_settings.weather_update && weather.current == 999) {
-    request_weather(NULL); // ANDROIIIIIDRAGE  (or, someone who's got weather enabled but location services disabled)
+  if (bluetooth_connected && adv_settings.weather_update) {
+    if (adv_settings.weather_update && (currentTime->tm_min + 60) % adv_settings.weather_update == 0) {
+      weather_request = app_timer_register(1000, &request_weather, NULL);
+    } else if (weather.current == 999 && weather.requests < 5) {
+      request_weather(NULL); // ANDROIIIIIDRAGE  (or, someone who's got weather enabled but location services disabled)
+    } 
   } 
 
 //  if (units_changed & MONTH_UNIT) {
@@ -1672,7 +1678,13 @@ void in_weather_handler(DictionaryIterator *received, void *context) {
     appkey = dict_find(received, AK_WEATHER_COND);
     if (appkey != NULL)     { strncpy(weather.condition, appkey->value->cstring, sizeof(weather.condition)-1); }
     layer_mark_dirty(weather_layer);
-    if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Weather received: %d, %s", weather.current, weather.condition); }
+    if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "Weather received [%d/%d]: %d, %s", weather.failures, weather.requests, weather.current, weather.condition); }
+    if (weather.current == 999) {
+      weather.failures++;
+    } else {
+      weather.requests = 0;
+      weather.failures = 0;
+    }
 }
 
 void in_timezone_handler(DictionaryIterator *received, void *context) {
