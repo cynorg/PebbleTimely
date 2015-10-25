@@ -412,7 +412,7 @@ function fetchOWMWeather(latitude, longitude) {
   var units = "imperial";
   if (weatherFormat === 1) { units = "metric"; }
   req.open('GET', "http://api.openweathermap.org/data/2.5/weather?" +
-    "lat=" + latitude + "&lon=" + longitude + "&cnt=1" + "&units=" + units, true);
+    "lat=" + latitude + "&lon=" + longitude + "&appid=fdc43ca42ea6a45d9c73a810f840aa55" + "&cnt=1" + "&units=" + units, true);
   req.onload = function(e) {
     if (req.readyState == 4) {
       if(req.status == 200) {
@@ -459,8 +459,8 @@ function fetchOWMWeather(latitude, longitude) {
 function weatherLocationSuccess(pos) {
   lastCoordinates = pos.coords;
   //console.log('Weather: location found (' + lastCoordinates.latitude + ', ' + lastCoordinates.longitude + '): ');
-  //fetchOWMWeather(lastCoordinates.latitude, lastCoordinates.longitude); // OWM: Open Weather Map
-  getWeatherFromLatLong(lastCoordinates.latitude, lastCoordinates.longitude); // YW: Yahoo Weather
+  fetchOWMWeather(lastCoordinates.latitude, lastCoordinates.longitude); // OWM: Open Weather Map
+  //getWeatherFromLatLong(lastCoordinates.latitude, lastCoordinates.longitude); // YW: Yahoo Weather
 }
 
 function locationError(err) {
