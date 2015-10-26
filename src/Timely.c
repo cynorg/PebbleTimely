@@ -1,7 +1,7 @@
 #include <pebble.h>
 #include <Timely.h>
 #include "effect_layer.h"
-#define DEBUGLOG 1
+#define DEBUGLOG 0
 #define TRANSLOG 0
 #define CONFIG_VERSION "2.6"
 /*
@@ -1602,7 +1602,8 @@ void handle_minute_tick(struct tm *tick_time, TimeUnits units_changed)
     if (adv_settings.weather_update && (currentTime->tm_min + 60) % adv_settings.weather_update == 0) {
       weather_request = app_timer_register(1000, &request_weather, NULL);
     } else if (weather.current == 999 && weather.requests < 5) {
-      request_weather(NULL); // ANDROIIIIIDRAGE  (or, someone who's got weather enabled but location services disabled)
+      // ANDROIIIIIDRAGE  (or, someone who's got weather enabled but location services disabled)
+      if (weather_request == NULL) { weather_request = app_timer_register(1000, &request_weather, NULL); } // for Android's slow JS...
     } 
   } 
 
