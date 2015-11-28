@@ -1332,6 +1332,9 @@ static void handle_bluetooth(bool connected) {
         timezone_request = app_timer_register(5000, &request_timezone, NULL); // give it time to settle...
         if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "timezone request timer queued"); }
       }
+      if (weather.current == 999 && adv_settings.weather_update) {
+        if (weather_request == NULL) { weather_request = app_timer_register(7000, &request_weather, NULL); } // If we have no weather information, we should request it after TZ will be recieved
+      }       
     }
   }
 }
