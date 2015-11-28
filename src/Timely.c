@@ -1088,8 +1088,18 @@ static void request_weather(void *data) {
   layer_mark_dirty(weather_layer); // update UI element to indicate we're fetching weather...
   DictionaryIterator *iter;
   AppMessageResult result = app_message_outbox_begin(&iter);
-  if (iter == NULL) {
-    if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "iterator is null: %d", result); }
+  if (iter == NULL) {  // This mean that message bug are busy now, so we could re-schedule task bit later
+    if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "iterator is null: %d", result); }      
+    if (bluetooth_connected) { // Only if bluetooth still connected
+      if  (weather.requests < 5) {  // Not more that 5 times(5 tries in 10 seconds)
+		  weather_request = app_timer_register(2000, &request_weather, NULL);
+		  weather.requests++;		  
+	  }       
+      else {  // If we tried five times and have no luck, will try in next minute tick
+		  weather_request = NULL; // Allow check in next minute tick
+		  weather.requests = 0;  // Reset requestes counter		  		  
+      }
+    }
     return;
   }
   if (dict_write_uint8(iter, AK_MESSAGE_TYPE, AK_REQUEST_WEATHER) != DICT_OK) {
@@ -1108,8 +1118,13 @@ static void request_timezone(void *data) {
   AppMessageResult result = app_message_outbox_begin(&iter);
   if (iter == NULL) {
     if (debug.general) { app_log(APP_LOG_LEVEL_DEBUG, __FILE__, __LINE__, "iterator is null: %d", result); }
-    return;
+    
+    if (bluetooth_connected) { // Only if bluetooth still connected
+      weather_request = app_timer_register(2000, &request_weather, NULL); // we wil retry in two seconds later		  
+	}  
+	return;           
   }
+   
   if (dict_write_uint8(iter, AK_MESSAGE_TYPE, AK_TIMEZONE_OFFSET) != DICT_OK) {
     return;
   }
