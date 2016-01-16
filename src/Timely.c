@@ -783,7 +783,7 @@ char * get_doy_text() {
 
 char * get_dliy_text() {
   static char dliy_text[] = "R000";
-  int daysThisFeb = daysInMonth(currentTime->tm_mon, currentTime->tm_year + 1900);
+  int daysThisFeb = daysInMonth(1, currentTime->tm_year + 1900);
   int daysThisYear = 365;
   if (daysThisFeb == 29) { daysThisYear = 366; }
   int daysSinceJanFirst = currentTime->tm_yday; // 0-365 inclusive
