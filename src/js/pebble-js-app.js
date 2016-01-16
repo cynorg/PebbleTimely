@@ -266,8 +266,8 @@ function getWeatherFromLocation(location_name) {
 
 function getWeatherFromWoeid(woeid) {
   if (weatherFormat === 1) { units = "metric"; }
-  var query = encodeURI("select item.condition from weather.forecast where woeid = " + woeid +
-                        " and u = " + (weatherFormat ? "\"c\"" : "\"f\""));
+  var query = encodeURI("select item.condition from weather.forecast where woeid=\"" + woeid +
+                        "\" and u = " + (weatherFormat ? "\"c\"" : "\"f\""));
   var url = "http://query.yahooapis.com/v1/public/yql?q=" + query + "&format=json";
 
   var response;
